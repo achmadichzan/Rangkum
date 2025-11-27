@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -65,6 +66,12 @@ dependencies {
     implementation("androidx.savedstate:savedstate-ktx:1.4.0")
     implementation("com.alphacephei:vosk-android:0.3.70")
     implementation("com.mikepenz:multiplatform-markdown-renderer-android:0.38.1")
+
+    val room_version = "2.8.4"
+
+    implementation("androidx.room:room-runtime:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

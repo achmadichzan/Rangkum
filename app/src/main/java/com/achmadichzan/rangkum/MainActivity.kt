@@ -36,9 +36,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compress
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
@@ -49,6 +51,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,11 +60,13 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,12 +88,16 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.achmadichzan.rangkum.data.local.ChatSession
 import com.achmadichzan.rangkum.ui.theme.RangkumTheme
 import com.mikepenz.markdown.compose.Markdown
 import com.mikepenz.markdown.model.DefaultMarkdownColors
 import com.mikepenz.markdown.model.DefaultMarkdownTypography
 import com.mikepenz.markdown.model.MarkdownColors
 import com.mikepenz.markdown.model.MarkdownTypography
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private val mediaProjectionManager by lazy {
@@ -99,7 +108,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            startMediaProjectionSetup()
+            startMediaProjectionSetup(pendingSessionId)
         } else {
             Toast.makeText(
                 this,
@@ -121,9 +130,13 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) {
         if (Settings.canDrawOverlays(this)) {
-            checkAudioPermissionAndStart()
+            checkAudioPermissionAndStart(pendingSessionId)
         } else {
-            Toast.makeText(this, "Izin Overlay wajib!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "Izin Overlay wajib!",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -133,18 +146,59 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RangkumTheme {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Button(onClick = {
-                        checkOverlayPermissionAndStart()
-                    }) {
-                        Text("Start Floating App")
+                val viewModel: MainViewModel = viewModel()
+                val sessions by viewModel.allSessions.collectAsState()
+
+                Scaffold(
+                    floatingActionButton = {
+                        FloatingActionButton(
+                            onClick = {
+                                checkOverlayPermissionAndStart(sessionId = -1L)
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ) {
+                            Icon(Icons.Default.Add, "Chat Baru")
+                        }
+                    }
+                ) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "Riwayat Rangkuman",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (sessions.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("Belum ada riwayat chat.", color = Color.Gray)
+                            }
+                        } else {
+                            LazyColumn {
+                                items(sessions) { session ->
+                                    HistoryItem(
+                                        session = session,
+                                        onClick = {
+                                            checkOverlayPermissionAndStart(sessionId = session.id)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    private fun checkOverlayPermissionAndStart() {
+    private fun checkOverlayPermissionAndStart(sessionId: Long) {
         if (!Settings.canDrawOverlays(this)) {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
@@ -152,35 +206,68 @@ class MainActivity : ComponentActivity() {
             )
             requestOverlayPermission.launch(intent)
         } else {
-            checkAudioPermissionAndStart()
+            checkAudioPermissionAndStart(sessionId)
         }
     }
 
-    private fun checkAudioPermissionAndStart() {
+    private fun checkAudioPermissionAndStart(sessionId: Long) {
         if (ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.RECORD_AUDIO
             ) == PackageManager.PERMISSION_GRANTED) {
-            startMediaProjectionSetup()
+            startMediaProjectionSetup(sessionId)
         } else {
             requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
-    private fun startMediaProjectionSetup() {
+    private fun startMediaProjectionSetup(sessionId: Long) {
+        this.pendingSessionId = sessionId
         startMediaProjection.launch(mediaProjectionManager.createScreenCaptureIntent())
     }
+
+    private var pendingSessionId: Long = -1L
 
     private fun startOverlayService(resultCode: Int, data: Intent) {
         val intent = Intent(this, OverlayService::class.java).apply {
             action = "START_RECORDING"
             putExtra("EXTRA_RESULT_CODE", resultCode)
             putExtra("EXTRA_RESULT_DATA", data)
+            putExtra("EXTRA_SESSION_ID", pendingSessionId)
         }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
             startService(intent)
+        }
+        // moveTaskToBack(true)
+    }
+}
+
+@Composable
+fun HistoryItem(session: ChatSession, onClick: () -> Unit) {
+    val dateFormat = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
+
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = session.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = dateFormat.format(Date(session.timestamp)),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray
+            )
         }
     }
 }
@@ -193,6 +280,7 @@ fun ChatScreen(
     isRecording: Boolean = false,
     onStartRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
+    onCancelRecording: () -> Unit = {},
     onCloseApp: () -> Unit = {},
     onWindowDrag: (Float, Float) -> Unit = { _, _ -> },
     onWindowResize: (Float, Float) -> Unit = { _, _ -> },
@@ -383,14 +471,22 @@ fun ChatScreen(
                                                     color = Color.Black
                                                 )
                                             } else {
-                                                // Indikator Loading
-                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top =4.dp)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(top = 4.dp)
+                                                ) {
                                                     LinearProgressIndicator(
-                                                        modifier = Modifier.width(60.dp).height(2.dp),
+                                                        modifier = Modifier
+                                                            .width(60.dp)
+                                                            .height(2.dp),
                                                         trackColor = Color.LightGray
                                                     )
                                                     Spacer(modifier = Modifier.width(8.dp))
-                                                    Text("Mendengarkan...", fontSize = 10.sp, color = Color.Gray)
+                                                    Text(
+                                                        "Mendengarkan...",
+                                                        fontSize = 10.sp,
+                                                        color = Color.Gray
+                                                    )
                                                 }
                                             }
                                         }
@@ -413,7 +509,10 @@ fun ChatScreen(
                                         contentColor = Color.White,
                                         modifier = Modifier.size(40.dp)
                                     ) {
-                                        Icon(Icons.Default.Check, contentDescription = "Simpan")
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = "Simpan"
+                                        )
                                     }
                                 } else {
                                     SmallFloatingActionButton(
@@ -425,7 +524,11 @@ fun ChatScreen(
                                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.size(40.dp)
                                     ) {
-                                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = "Edit",
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
 
                                     SmallFloatingActionButton(
@@ -434,7 +537,24 @@ fun ChatScreen(
                                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                         modifier = Modifier.size(40.dp)
                                     ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(20.dp))
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = "Reset",
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    SmallFloatingActionButton(
+                                        onClick = onCancelRecording,
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Batal",
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
                                 }
                             }

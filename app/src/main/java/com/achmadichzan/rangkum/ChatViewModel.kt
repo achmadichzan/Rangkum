@@ -1,15 +1,22 @@
 package com.achmadichzan.rangkum
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.achmadichzan.rangkum.data.local.AppDatabase
+import com.achmadichzan.rangkum.data.local.ChatMessageEntity
+import com.achmadichzan.rangkum.data.local.ChatSession
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
+import com.google.firebase.ai.type.content
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class ChatMessage(
     val text: String,
@@ -17,12 +24,14 @@ data class ChatMessage(
     val isError: Boolean = false
 )
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
+    private val dao = AppDatabase.getDatabase(application).chatDao()
+    private var currentSessionId: Long? = null
 
     private val model = Firebase.ai(backend = GenerativeBackend.googleAI())
         .generativeModel("gemini-2.5-flash")
 
-    private val chatSession = model.startChat()
+    private var chatSession = model.startChat()
 
     val messages = mutableStateListOf<ChatMessage>()
 
@@ -35,17 +44,58 @@ class ChatViewModel : ViewModel() {
     var liveTranscript by mutableStateOf("")
         private set
 
-    fun onInputChange(newValue: String) {
-        userInput = newValue
+//    init {
+//        startNewSession()
+//    }
+
+    fun startNewSession() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val newSession = ChatSession(title = "Percakapan Baru ${System.currentTimeMillis()}")
+            currentSessionId = dao.insertSession(newSession)
+
+            withContext(Dispatchers.Main) {
+                messages.clear()
+                liveTranscript = ""
+                chatSession = model.startChat()
+            }
+        }
     }
 
-    fun updateLiveTranscript(text: String) {
-        liveTranscript = text
+    fun loadHistorySession(sessionId: Long) {
+        isLoading = true
+        currentSessionId = sessionId
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val historyEntities = dao.getMessagesBySessionId(sessionId)
+
+            withContext(Dispatchers.Main) {
+                messages.clear()
+                messages.addAll(historyEntities.map {
+                    ChatMessage(it.text, it.isUser)
+                })
+
+                val geminiHistory = historyEntities.map { msg ->
+                    content(role = if (msg.isUser) "user" else "model") { text(msg.text) }
+                }
+                chatSession = model.startChat(history = geminiHistory)
+
+                isLoading = false
+            }
+        }
     }
 
-    fun clearLiveTranscript() {
-        liveTranscript = ""
+    private fun saveMessageToDb(text: String, isUser: Boolean) {
+        val sessionId = currentSessionId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.insertMessage(
+                ChatMessageEntity(sessionId = sessionId, text = text, isUser = isUser)
+            )
+        }
     }
+
+    fun onInputChange(newValue: String) { userInput = newValue }
+    fun updateLiveTranscript(text: String) { liveTranscript = text }
+    fun clearLiveTranscript() { liveTranscript = "" }
 
     fun sendMessage() {
         val currentMessage = userInput.trim()
@@ -55,15 +105,24 @@ class ChatViewModel : ViewModel() {
         userInput = ""
         isLoading = true
 
+        saveMessageToDb(currentMessage, true)
+
         viewModelScope.launch {
             try {
+                if (currentSessionId == null) startNewSession()
+
                 val response = chatSession.sendMessage(currentMessage)
 
                 response.text?.let { responseText ->
                     messages.add(ChatMessage(text = responseText, isUser = false))
+                    saveMessageToDb(responseText, false)
                 }
             } catch (e: Exception) {
-                messages.add(ChatMessage(text = "Error: ${e.localizedMessage}", isUser = false, isError = true))
+                messages.add(ChatMessage(
+                    text = "Error: ${e.localizedMessage}",
+                    isUser = false,
+                    isError = true
+                ))
             } finally {
                 isLoading = false
             }
@@ -74,19 +133,40 @@ class ChatViewModel : ViewModel() {
         isLoading = true
         messages.add(ChatMessage("Transkrip Selesai. Mengirim ke AI...", isUser = true))
 
+        saveMessageToDb(transcript, true)
+
         viewModelScope.launch {
             try {
-                val prompt =
-                    "Berikut adalah transkrip audio: \n\n\"$transcript\"\n\n " +
-                            "Tolong buatkan rangkuman poin penting dari transkrip tersebut."
+                if (currentSessionId == null) {
+                    val newSession = ChatSession(title = "Transkrip ${System.currentTimeMillis()}")
+                    currentSessionId = withContext(Dispatchers.IO) {
+                        dao.insertSession(newSession)
+                    }
+                }
+
+                val prompt = """
+                    Berikut adalah transkrip mentah dari speech-to-text yang mungkin mengandung typo:
+                    
+                    "$transcript"
+                    
+                    Instruksi Khusus:
+                    1. Pahami konteks dan perbaiki kesalahan ejaan/tata bahasa secara internal (dalam proses berpikirmu saja).
+                    2. JANGAN tampilkan ulang teks transkrip yang diperbaiki.
+                    3. Output jawabanmu harus LANGSUNG berupa Rangkuman Poin-Poin Penting dalam Bahasa Indonesia.
+                """.trimIndent()
 
                 val response = chatSession.sendMessage(prompt)
 
                 response.text?.let {
                     messages.add(ChatMessage(it, isUser = false))
+                    saveMessageToDb(it, false)
                 }
             } catch (e: Exception) {
-                messages.add(ChatMessage("Error: ${e.message}", isUser = false, isError = true))
+                messages.add(ChatMessage(
+                    "Error: ${e.message}",
+                    isUser = false,
+                    isError = true
+                ))
             } finally {
                 isLoading = false
             }
