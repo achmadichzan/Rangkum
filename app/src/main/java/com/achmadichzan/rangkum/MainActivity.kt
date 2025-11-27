@@ -42,7 +42,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
@@ -50,6 +49,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Minimize
+import androidx.compose.material.icons.filled.NorthWest
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Visibility
@@ -450,7 +450,7 @@ fun ChatScreen(
                                     Icons.Default.Minimize,
                                     "Kecilkan",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 14.dp)
+                                    modifier = Modifier.padding(bottom = 15.dp)
                                 )
                             }
                             IconButton(onClick = onCloseApp) {
@@ -559,7 +559,7 @@ fun ChatScreen(
                                 Row(
                                     modifier = Modifier.fillMaxWidth()
                                         .padding(bottom = 12.dp),
-                                    verticalAlignment = Alignment.Bottom
+                                    verticalAlignment = Alignment.Top
                                 ) {
                                     Card(
                                         colors = CardDefaults.cardColors(
@@ -568,7 +568,7 @@ fun ChatScreen(
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier
                                             .weight(1f)
-                                            .heightIn(min = 80.dp, max = 200.dp)
+                                            .heightIn(min = 80.dp, max = 150.dp)
                                     ) {
                                         Column(modifier = Modifier.padding(12.dp)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -781,20 +781,21 @@ fun ChatScreen(
             )
 
             Icon(
-                imageVector = Icons.Default.Compress,
+                imageVector = Icons.Default.NorthWest,
                 contentDescription = "Resize",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
                     .size(24.dp)
-                    .rotate(315f)
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             onWindowResize(dragAmount.x, dragAmount.y)
                         }
                     }
+
+                    .rotate(180f)
             )
         }
     }
