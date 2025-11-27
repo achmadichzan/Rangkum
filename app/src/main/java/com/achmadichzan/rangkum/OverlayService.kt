@@ -81,6 +81,12 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private var voskRecognizer: Recognizer? = null
     private val finalTranscript = StringBuilder()
 
+    private lateinit var params: WindowManager.LayoutParams
+
+    private var lastWidth = 0
+    private var lastHeight = 0
+    private var isCollapsed by mutableStateOf(false)
+
     private fun resetTranscript() {
         finalTranscript.clear()
 
@@ -119,7 +125,10 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
         val minWidth = (200 * metrics.density).toInt()
         val minHeight = (150 * metrics.density).toInt()
 
-        val params = WindowManager.LayoutParams(
+        lastWidth = initialWidth
+        lastHeight = initialHeight
+
+        params = WindowManager.LayoutParams(
             initialWidth,
             initialHeight,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -173,10 +182,17 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                                 params.width = rawWidth.coerceIn(minWidth, maxWidthAllowed)
                                 params.height = rawHeight.coerceIn(minHeight, maxHeightAllowed)
 
+                                if (!isCollapsed) {
+                                    lastWidth = params.width
+                                    lastHeight = params.height
+                                }
                                 updateWindow(params)
                             },
                             onResetTranscript = { resetTranscript() },
-                            onUpdateTranscript = { newText -> updateTranscriptManual(newText) }
+                            onUpdateTranscript = { newText -> updateTranscriptManual(newText) },
+                            isCollapsed = isCollapsed,
+                            onToggleCollapse = { toggleCollapse() },
+                            onOpacityChange = { newAlpha -> updateOpacity(newAlpha) }
                         )
                     }
                 }
@@ -489,6 +505,30 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             e.printStackTrace()
             "Error parseVoskPartial JSON"
         }
+    }
+
+    private fun updateOpacity(alpha: Float) {
+        params.alpha = alpha
+        updateWindow(params)
+    }
+
+    private fun toggleCollapse() {
+        val metrics = resources.displayMetrics
+        val bubbleSize = (60 * metrics.density).toInt()
+
+        if (isCollapsed) {
+            params.width = lastWidth
+            params.height = lastHeight
+            isCollapsed = false
+        } else {
+            lastWidth = params.width
+            lastHeight = params.height
+
+            params.width = bubbleSize
+            params.height = bubbleSize
+            isCollapsed = true
+        }
+        updateWindow(params)
     }
 
     private fun performGracefulShutdown() {

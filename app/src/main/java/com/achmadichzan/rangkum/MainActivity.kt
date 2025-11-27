@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compress
@@ -47,8 +49,10 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -66,6 +70,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,6 +79,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -320,7 +326,10 @@ fun ChatScreen(
     onWindowDrag: (Float, Float) -> Unit = { _, _ -> },
     onWindowResize: (Float, Float) -> Unit = { _, _ -> },
     onResetTranscript: () -> Unit = {},
-    onUpdateTranscript: (String) -> Unit = {}
+    onUpdateTranscript: (String) -> Unit = {},
+    isCollapsed: Boolean = false,
+    onToggleCollapse: () -> Unit = {},
+    onOpacityChange: (Float) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
 
@@ -330,358 +339,464 @@ fun ChatScreen(
         }
     }
 
-    Box(modifier = modifier.padding(12.dp)) {
-        Card(
-            modifier = Modifier.fillMaxSize(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    var currentAlpha by remember { mutableFloatStateOf(1f) }
+    var showOpacitySlider by remember { mutableStateOf(false) }
+
+    if (isCollapsed) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectDragGestures { change, dragAmount ->
+                        change.consume()
+                        onWindowDrag(dragAmount.x, dragAmount.y)
+                    }
+                },
+            contentAlignment = Alignment.Center
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
+            FloatingActionButton(
+                onClick = onToggleCollapse,
+                containerColor = MaterialTheme.colorScheme.primary,
+                shape = CircleShape,
+                modifier = Modifier.size(56.dp)
+            ) {
+                if (isRecording) {
+                    Icon(
+                        Icons.Default.GraphicEq,
+                        "Expand",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.ChatBubble,
+                        "Expand",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+
+            if (isRecording) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .pointerInput(Unit) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                onWindowDrag(dragAmount.x, dragAmount.y)
-                            }
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val statusColor = when {
-                            isPreparing -> Color.Yellow
-                            isRecording -> MaterialTheme.colorScheme.error
-                            else -> Color.Green
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(color = statusColor, shape = CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        val statusText = when {
-                            isPreparing -> "Menyiapkan..."
-                            isRecording -> "Mendengarkan..."
-                            else -> "Rangkum AI"
-                        }
-
-                        Text(
-                            text = statusText,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    IconButton(onClick = onCloseApp) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Tutup",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(12.dp)
+                        .background(MaterialTheme.colorScheme.error, CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.onError, CircleShape)
                 )
-
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    items(viewModel.messages) { message ->
-                        MessageBubble(message)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    if (viewModel.isLoading) {
-                        item {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(16.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "AI sedang berpikir...",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
+            }
+        }
+    } else {
+        Box(modifier = modifier.padding(12.dp)) {
+            Card(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    onWindowDrag(dragAmount.x, dragAmount.y)
+                                }
+                            },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val statusColor = when {
+                                isPreparing -> MaterialTheme.colorScheme.tertiary
+                                isRecording -> MaterialTheme.colorScheme.error
+                                else -> Color.Green
                             }
-                        }
-                    }
-                }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                when {
-                    isPreparing -> {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
+                            Box(
                                 modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
+                                    .size(10.dp)
+                                    .background(color = statusColor, shape = CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            val statusText = when {
+                                isPreparing -> "Menyiapkan..."
+                                isRecording -> "Mendengarkan..."
+                                else -> "Rangkum AI"
+                            }
+
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Row {
+                            IconButton(onClick = { showOpacitySlider = !showOpacitySlider }) {
+                                Icon(
+                                    Icons.Default.Visibility,
+                                    "Transparansi",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "Menghubungkan Audio...",
-                                    style = MaterialTheme.typography.bodyMedium
+                            }
+                            IconButton(onClick = onToggleCollapse) {
+                                Icon(
+                                    Icons.Default.Minimize,
+                                    "Kecilkan",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 14.dp)
+                                )
+                            }
+                            IconButton(onClick = onCloseApp) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    "Tutup",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
                     }
 
-                    isRecording -> {
-                        var isEditing by remember { mutableStateOf(false) }
-                        var tempEditText by remember { mutableStateOf("") }
+                    if (showOpacitySlider) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    "Transparansi: ${(currentAlpha * 100).toInt()}%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Slider(
+                                    value = currentAlpha,
+                                    onValueChange = {
+                                        currentAlpha = it
+                                        onOpacityChange(it)
+                                    },
+                                    valueRange = 0.3f..1f
+                                )
+                            }
+                        }
+                    }
 
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(
-                                modifier = Modifier.weight(1f)
-                                    .fillMaxWidth()
-                                    .padding(bottom = 12.dp),
-                                verticalAlignment = Alignment.Top
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        items(viewModel.messages) { message ->
+                            MessageBubble(message)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        if (viewModel.isLoading) {
+                            item {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "AI sedang berpikir...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    when {
+                        isPreparing -> {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
+                                Row(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .heightIn(min = 80.dp, max = 200.dp)
+                                        .padding(16.dp)
+                                        .fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.GraphicEq,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text(
-                                                text = if (isEditing) "Mode Edit:" else "Live Transkrip:",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "Menghubungkan Audio...",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
 
-                                        if (isEditing) {
-                                            OutlinedTextField(
-                                                value = tempEditText,
-                                                onValueChange = { tempEditText = it },
-                                                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                ),
-                                                colors = OutlinedTextFieldDefaults.colors(
-                                                    focusedBorderColor = Color.Transparent,
-                                                    unfocusedBorderColor = Color.Transparent,
-                                                    cursorColor = MaterialTheme.colorScheme.primary
+                        isRecording -> {
+                            var isEditing by remember { mutableStateOf(false) }
+                            var tempEditText by remember { mutableStateOf("") }
+
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(bottom = 12.dp),
+                                    verticalAlignment = Alignment.Bottom
+                                ) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                        ),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 80.dp, max = 200.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.GraphicEq,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
                                                 )
-                                            )
-                                        } else {
-                                            val scrollState = rememberScrollState()
-
-                                            LaunchedEffect(viewModel.liveTranscript) {
-                                                scrollState.animateScrollTo(scrollState.maxValue)
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = if (isEditing) "Mode Edit:" else "Live Transkrip:",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                )
                                             }
+                                            Spacer(modifier = Modifier.height(4.dp))
 
-                                            Column(modifier = Modifier.verticalScroll(scrollState)) {
-                                                if (viewModel.liveTranscript.isNotBlank()) {
-                                                    Text(
-                                                        text = viewModel.liveTranscript,
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        fontStyle = FontStyle.Italic,
+                                            if (isEditing) {
+                                                OutlinedTextField(
+                                                    value = tempEditText,
+                                                    onValueChange = { tempEditText = it },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                        .verticalScroll(rememberScrollState()),
+                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
                                                         color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                    ),
+                                                    colors = OutlinedTextFieldDefaults.colors(
+                                                        focusedBorderColor = Color.Transparent,
+                                                        unfocusedBorderColor = Color.Transparent,
+                                                        cursorColor = MaterialTheme.colorScheme.primary
                                                     )
-                                                } else {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier.padding(top = 4.dp)
-                                                    ) {
-                                                        LinearProgressIndicator(
-                                                            modifier = Modifier.width(60.dp).height(2.dp),
-                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                            trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.3f)
-                                                        )
-                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                )
+                                            } else {
+                                                val scrollState = rememberScrollState()
+
+                                                LaunchedEffect(viewModel.liveTranscript) {
+                                                    scrollState.animateScrollTo(scrollState.maxValue)
+                                                }
+
+                                                Column(
+                                                    modifier = Modifier.verticalScroll(
+                                                        scrollState
+                                                    )
+                                                ) {
+                                                    if (viewModel.liveTranscript.isNotBlank()) {
                                                         Text(
-                                                            "Mendengarkan...",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                                            text = viewModel.liveTranscript,
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontStyle = FontStyle.Italic,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer
                                                         )
+                                                    } else {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier.padding(top = 4.dp)
+                                                        ) {
+                                                            LinearProgressIndicator(
+                                                                modifier = Modifier.width(60.dp)
+                                                                    .height(2.dp),
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                                trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                                                    alpha = 0.3f
+                                                                )
+                                                            )
+                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Text(
+                                                                "Mendengarkan...",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                                                    alpha = 0.7f
+                                                                )
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
 
-                                Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
 
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (isEditing) {
-                                        SmallFloatingActionButton(
-                                            onClick = { onUpdateTranscript(tempEditText); isEditing = false },
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier.size(40.dp)
-                                        ) { Icon(Icons.Default.Check, "Simpan") }
-                                    } else {
-                                        SmallFloatingActionButton(
-                                            onClick = { tempEditText = viewModel.liveTranscript; isEditing = true },
-                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                            modifier = Modifier.size(40.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Edit,
-                                                "Edit",
-                                                Modifier.size(20.dp)
-                                            )
-                                        }
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        if (isEditing) {
+                                            SmallFloatingActionButton(
+                                                onClick = {
+                                                    onUpdateTranscript(tempEditText); isEditing =
+                                                    false
+                                                },
+                                                containerColor = MaterialTheme.colorScheme.primary,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                                modifier = Modifier.size(40.dp)
+                                            ) { Icon(Icons.Default.Check, "Simpan") }
+                                        } else {
+                                            SmallFloatingActionButton(
+                                                onClick = {
+                                                    tempEditText =
+                                                        viewModel.liveTranscript; isEditing = true
+                                                },
+                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Edit,
+                                                    "Edit",
+                                                    Modifier.size(20.dp)
+                                                )
+                                            }
 
-                                        SmallFloatingActionButton(
-                                            onClick = onResetTranscript,
-                                            containerColor = MaterialTheme.colorScheme.secondary,
-                                            contentColor = MaterialTheme.colorScheme.onSecondary,
-                                            modifier = Modifier.size(40.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Refresh,
-                                                "Reset",
-                                                Modifier.size(20.dp)
-                                            )
-                                        }
+                                            SmallFloatingActionButton(
+                                                onClick = onResetTranscript,
+                                                containerColor = MaterialTheme.colorScheme.secondary,
+                                                contentColor = MaterialTheme.colorScheme.onSecondary,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Refresh,
+                                                    "Reset",
+                                                    Modifier.size(20.dp)
+                                                )
+                                            }
 
-                                        SmallFloatingActionButton(
-                                            onClick = onCancelRecording,
-                                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                            modifier = Modifier.size(40.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Delete,
-                                                "Batal",
-                                                Modifier.size(20.dp)
-                                            )
+                                            SmallFloatingActionButton(
+                                                onClick = onCancelRecording,
+                                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                modifier = Modifier.size(40.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    "Batal",
+                                                    Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            Button(
-                                onClick = onStopRecording,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.Stop, null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Stop & Rangkum")
+                                Button(
+                                    onClick = onStopRecording,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Stop, null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Stop & Rangkum")
+                                }
                             }
                         }
-                    }
 
-                    else -> {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            IconButton(
-                                onClick = onStartRecording,
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
+                        else -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Icon(Icons.Default.GraphicEq, "Rekam Lagi")
-                            }
+                                IconButton(
+                                    onClick = onStartRecording,
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Default.GraphicEq, "Rekam Lagi")
+                                }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
-                            OutlinedTextField(
-                                value = viewModel.userInput,
-                                onValueChange = { viewModel.onInputChange(it) },
-                                modifier = Modifier.weight(1f),
-                                placeholder = { Text("Tanya detail...") },
-                                singleLine = true,
-                                shape = RoundedCornerShape(24.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                OutlinedTextField(
+                                    value = viewModel.userInput,
+                                    onValueChange = { viewModel.onInputChange(it) },
+                                    modifier = Modifier.weight(1f),
+                                    placeholder = { Text("Tanya detail...") },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                    )
                                 )
-                            )
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
-                            IconButton(
-                                onClick = { viewModel.sendMessage() },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                )
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, "Kirim")
+                                IconButton(
+                                    onClick = { viewModel.sendMessage() },
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, "Kirim")
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        Icon(
-            imageVector = Icons.Default.DragHandle,
-            contentDescription = "Drag Handle",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(32.dp)
-        )
+            Icon(
+                imageVector = Icons.Default.DragHandle,
+                contentDescription = "Drag Handle",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.align(Alignment.TopCenter)
+                    .padding(bottom = 8.dp)
+                    .size(32.dp)
+            )
 
-        Icon(
-            imageVector = Icons.Default.Compress,
-            contentDescription = "Resize",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(4.dp)
-                .size(24.dp)
-                .rotate(315f)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        onWindowResize(dragAmount.x, dragAmount.y)
+            Icon(
+                imageVector = Icons.Default.Compress,
+                contentDescription = "Resize",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .size(24.dp)
+                    .rotate(315f)
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            onWindowResize(dragAmount.x, dragAmount.y)
+                        }
                     }
-                }
-        )
+            )
+        }
     }
 }
 
