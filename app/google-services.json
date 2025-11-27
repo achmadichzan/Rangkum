@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "750745536802",
+    "project_id": "rangkum-4d305",
+    "storage_bucket": "rangkum-4d305.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750745536802:android:17d4c5beba4219036ebd7b",
+        "android_client_info": {
+          "package_name": "com.achmadichzan.rangkum"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDl3UsHn6PCvtiDhBFLQRvv8TPISNHIkY0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
