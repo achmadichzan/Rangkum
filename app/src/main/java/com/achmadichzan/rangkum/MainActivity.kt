@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -87,6 +88,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -358,12 +360,13 @@ fun ChatScreen(
                 onClick = onToggleCollapse,
                 containerColor = MaterialTheme.colorScheme.primary,
                 shape = CircleShape,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(42.dp)
             ) {
                 if (isRecording) {
                     Icon(
                         Icons.Default.GraphicEq,
                         "Expand",
+                        Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
@@ -379,7 +382,7 @@ fun ChatScreen(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
+                        .padding(8.dp)
                         .size(12.dp)
                         .background(MaterialTheme.colorScheme.error, CircleShape)
                         .border(1.dp, MaterialTheme.colorScheme.onError, CircleShape)
@@ -588,19 +591,26 @@ fun ChatScreen(
                                             Spacer(modifier = Modifier.height(4.dp))
 
                                             if (isEditing) {
-                                                OutlinedTextField(
+                                                BasicTextField(
                                                     value = tempEditText,
                                                     onValueChange = { tempEditText = it },
-                                                    modifier = Modifier.fillMaxWidth()
-                                                        .verticalScroll(rememberScrollState()),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(0.dp),
                                                     textStyle = MaterialTheme.typography.bodyMedium.copy(
                                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                                     ),
-                                                    colors = OutlinedTextFieldDefaults.colors(
-                                                        focusedBorderColor = Color.Transparent,
-                                                        unfocusedBorderColor = Color.Transparent,
-                                                        cursorColor = MaterialTheme.colorScheme.primary
-                                                    )
+                                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                                    decorationBox = { innerTextField ->
+                                                        if (tempEditText.isEmpty()) {
+                                                            Text(
+                                                                text = "Edit transkrip...",
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
+                                                            )
+                                                        }
+                                                        innerTextField()
+                                                    }
                                                 )
                                             } else {
                                                 val scrollState = rememberScrollState()

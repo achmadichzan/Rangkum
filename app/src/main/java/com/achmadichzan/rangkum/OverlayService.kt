@@ -17,6 +17,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
@@ -136,7 +137,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             else
                 @Suppress("DEPRECATION")
                 WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+
             PixelFormat.TRANSLUCENT
         )
         params.gravity = Gravity.TOP or Gravity.START
@@ -146,6 +149,20 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             setViewTreeLifecycleOwner(this@OverlayService)
             setViewTreeViewModelStoreOwner(this@OverlayService)
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
+
+            isFocusable = true
+            isFocusableInTouchMode = true
+
+            setOnKeyListener { _, keyCode, event ->
+                if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    if (!isCollapsed) {
+                        toggleCollapse()
+                        return@setOnKeyListener true
+                    }
+
+                }
+                false
+            }
 
             setContent {
                 val userPrefDark by chatViewModel.isDarkMode.collectAsState()
@@ -398,7 +415,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             voskRecognizer?.reset()
 
             withContext(Dispatchers.Main) {
-                chatViewModel.updateLiveTranscript("Mendengarkan...")
+                chatViewModel.updateLiveTranscript("")
             }
 
             val bufferSize = 8192
@@ -519,6 +536,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
         if (isCollapsed) {
             params.width = lastWidth
             params.height = lastHeight
+
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+
             isCollapsed = false
         } else {
             lastWidth = params.width
@@ -526,8 +546,12 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
             params.width = bubbleSize
             params.height = bubbleSize
+
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+
             isCollapsed = true
         }
+
         updateWindow(params)
     }
 
