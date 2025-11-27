@@ -36,10 +36,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -54,10 +57,15 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -183,10 +191,13 @@ fun ChatScreen(
     viewModel: ChatViewModel = viewModel(),
     isPreparing: Boolean = false,
     isRecording: Boolean = false,
+    onStartRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
     onCloseApp: () -> Unit = {},
     onWindowDrag: (Float, Float) -> Unit = { _, _ -> },
-    onWindowResize: (Float, Float) -> Unit = { _, _ -> }
+    onWindowResize: (Float, Float) -> Unit = { _, _ -> },
+    onResetTranscript: () -> Unit = {},
+    onUpdateTranscript: (String) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
 
@@ -314,26 +325,22 @@ fun ChatScreen(
                     }
 
                     isRecording -> {
-                        Column {
+                        var isEditing by remember { mutableStateOf(false) }
+                        var tempEditText by remember { mutableStateOf("") }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F7FA)),
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 12.dp)
-                                    .heightIn(min = 60.dp, max = 200.dp)
+                                    .weight(1f)
+                                    .heightIn(min = 80.dp, max = 200.dp)
                             ) {
-                                val scrollState = rememberScrollState()
-
-                                LaunchedEffect(viewModel.liveTranscript) {
-                                    scrollState.animateScrollTo(scrollState.maxValue)
-                                }
-
-                                Column(
-                                    modifier = Modifier
-                                        .padding(12.dp)
-                                        .verticalScroll(scrollState)
-                                ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
                                             imageVector = Icons.Default.GraphicEq,
@@ -343,57 +350,105 @@ fun ChatScreen(
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "Live Transkrip:",
+                                            text = if (isEditing) "Mode Edit:" else "Live Transkrip:",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     }
-
                                     Spacer(modifier = Modifier.height(4.dp))
 
-                                    if (viewModel.liveTranscript.isNotBlank()) {
-                                        Text(
-                                            text = viewModel.liveTranscript,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontStyle = FontStyle.Italic,
-                                            color = Color.Black
+                                    if (isEditing) {
+                                        OutlinedTextField(
+                                            value = tempEditText,
+                                            onValueChange = { tempEditText = it },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textStyle = MaterialTheme.typography.bodyMedium,
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color.Transparent,
+                                                unfocusedBorderColor = Color.Transparent
+                                            )
                                         )
-                                    }
+                                    } else {
+                                        val scrollState = rememberScrollState()
+                                        LaunchedEffect(viewModel.liveTranscript) {
+                                            scrollState.animateScrollTo(scrollState.maxValue)
+                                        }
 
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        LinearProgressIndicator(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(2.dp),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            trackColor = Color.LightGray.copy(alpha = 0.5f)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "Mendengarkan...",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color.Gray,
-                                            fontSize = 10.sp
-                                        )
+                                        Column(modifier = Modifier.verticalScroll(scrollState)) {
+                                            if (viewModel.liveTranscript.isNotBlank()) {
+                                                Text(
+                                                    text = viewModel.liveTranscript,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontStyle = FontStyle.Italic,
+                                                    color = Color.Black
+                                                )
+                                            } else {
+                                                // Indikator Loading
+                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top =4.dp)) {
+                                                    LinearProgressIndicator(
+                                                        modifier = Modifier.width(60.dp).height(2.dp),
+                                                        trackColor = Color.LightGray
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text("Mendengarkan...", fontSize = 10.sp, color = Color.Gray)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
 
-                            Button(
-                                onClick = onStopRecording,
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Default.Stop, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Stop & Rangkum")
+                                if (isEditing) {
+                                    SmallFloatingActionButton(
+                                        onClick = {
+                                            onUpdateTranscript(tempEditText)
+                                            isEditing = false
+                                        },
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = Color.White,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = "Simpan")
+                                    }
+                                } else {
+                                    SmallFloatingActionButton(
+                                        onClick = {
+                                            tempEditText = viewModel.liveTranscript
+                                            isEditing = true
+                                        },
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
+                                    }
+
+                                    SmallFloatingActionButton(
+                                        onClick = onResetTranscript,
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(20.dp))
+                                    }
+                                }
                             }
+                        }
+
+                        Button(
+                            onClick = onStopRecording,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Stop, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Stop & Rangkum")
                         }
                     }
 
@@ -402,6 +457,18 @@ fun ChatScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
                         ) {
+                            IconButton(
+                                onClick = onStartRecording,
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Icon(Icons.Default.GraphicEq, contentDescription = "Rekam Lagi")
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
                             OutlinedTextField(
                                 value = viewModel.userInput,
                                 onValueChange = { viewModel.onInputChange(it) },

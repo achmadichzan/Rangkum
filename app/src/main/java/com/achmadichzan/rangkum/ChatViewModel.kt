@@ -72,7 +72,7 @@ class ChatViewModel : ViewModel() {
 
     fun sendTextToGemini(transcript: String) {
         isLoading = true
-        messages.add(ChatMessage("Transkrip Selesai (Offline). Mengirim ke AI...", isUser = true))
+        messages.add(ChatMessage("Transkrip Selesai. Mengirim ke AI...", isUser = true))
 
         viewModelScope.launch {
             try {
@@ -80,7 +80,7 @@ class ChatViewModel : ViewModel() {
                     "Berikut adalah transkrip audio: \n\n\"$transcript\"\n\n " +
                             "Tolong buatkan rangkuman poin penting dari transkrip tersebut."
 
-                val response = model.generateContent(prompt)
+                val response = chatSession.sendMessage(prompt)
 
                 response.text?.let {
                     messages.add(ChatMessage(it, isUser = false))

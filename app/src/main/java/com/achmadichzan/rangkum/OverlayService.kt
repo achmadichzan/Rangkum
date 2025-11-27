@@ -66,6 +66,27 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private var voskRecognizer: Recognizer? = null
     private val finalTranscript = StringBuilder()
 
+    private fun resetTranscript() {
+        finalTranscript.clear()
+
+        val viewModel = ViewModelProvider(this@OverlayService)[ChatViewModel::class.java]
+        viewModel.clearLiveTranscript()
+    }
+
+    private fun updateTranscriptManual(newText: String) {
+        finalTranscript.clear()
+        finalTranscript.append(newText)
+
+        val viewModel = ViewModelProvider(this@OverlayService)[ChatViewModel::class.java]
+        viewModel.updateLiveTranscript(newText)
+    }
+
+    private fun restartRecordingProcess() {
+        val intent = Intent(this, MainActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+    }
+
     override fun onCreate() {
         super.onCreate()
         startForegroundServiceNotification()
@@ -103,6 +124,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                     ChatScreen(
                         isRecording = isRecording,
                         isPreparing = isPreparing,
+                        onStartRecording = {
+                            restartRecordingProcess()
+                        },
                         onStopRecording = { stopRecording() },
                         onCloseApp = {
                             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -125,7 +149,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                             params.height = newHeight.coerceAtLeast(minHeight)
 
                             updateWindow(params)
-                        }
+                        },
+                        onResetTranscript = { resetTranscript() },
+                        onUpdateTranscript = { newText -> updateTranscriptManual(newText) }
                     )
                 }
             }

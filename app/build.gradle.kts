@@ -62,7 +62,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.service)
-    implementation("androidx.savedstate:savedstate-ktx:1.2.1")
+    implementation("androidx.savedstate:savedstate-ktx:1.4.0")
     implementation("com.alphacephei:vosk-android:0.3.70")
     implementation("com.mikepenz:multiplatform-markdown-renderer-android:0.38.1")
 
