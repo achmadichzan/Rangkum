@@ -10,11 +10,14 @@ import androidx.lifecycle.viewModelScope
 import com.achmadichzan.rangkum.data.local.AppDatabase
 import com.achmadichzan.rangkum.data.local.ChatMessageEntity
 import com.achmadichzan.rangkum.data.local.ChatSession
+import com.achmadichzan.rangkum.data.preferences.UserPreferences
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.ai.type.content
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -26,6 +29,7 @@ data class ChatMessage(
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = AppDatabase.getDatabase(application).chatDao()
+    private val userPreferences = UserPreferences(application)
     private var currentSessionId: Long? = null
 
     private val model = Firebase.ai(backend = GenerativeBackend.googleAI())
@@ -44,9 +48,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     var liveTranscript by mutableStateOf("")
         private set
 
-//    init {
-//        startNewSession()
-//    }
+    val isDarkMode = userPreferences.isDarkMode
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
 
     fun startNewSession() {
         viewModelScope.launch(Dispatchers.IO) {

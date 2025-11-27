@@ -18,8 +18,11 @@ import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -37,6 +40,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.achmadichzan.rangkum.ui.theme.RangkumTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -106,6 +110,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
         val metrics = resources.displayMetrics
+        val screenWidth = metrics.widthPixels
+        val screenHeight = metrics.heightPixels
+
         val initialWidth = (300 * metrics.density).toInt()
         val initialHeight = (400 * metrics.density).toInt()
 
@@ -132,37 +139,46 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
 
             setContent {
-                Surface(color = Color.Transparent) {
-                    ChatScreen(
-                        isRecording = isRecording,
-                        isPreparing = isPreparing,
-                        onStartRecording = {
-                            restartRecordingProcess()
-                        },
-                        onStopRecording = { stopRecording() },
-                        onCancelRecording = { cancelRecording() },
-                        onCloseApp = { performGracefulShutdown() },
-                        onWindowDrag = { deltaX, deltaY ->
-                            params.x += deltaX.toInt()
-                            params.y += deltaY.toInt()
-                            try {
-                                windowManager.updateViewLayout(composeView, params)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        },
-                        onWindowResize = { deltaWidth, deltaHeight ->
-                            val newWidth = params.width + deltaWidth.toInt()
-                            val newHeight = params.height + deltaHeight.toInt()
+                val userPrefDark by chatViewModel.isDarkMode.collectAsState()
+                val systemDark = isSystemInDarkTheme()
+                val isDarkFinal = userPrefDark ?: systemDark
 
-                            params.width = newWidth.coerceAtLeast(minWidth)
-                            params.height = newHeight.coerceAtLeast(minHeight)
+                RangkumTheme(darkTheme = isDarkFinal, dynamicColor = false) {
+                    Surface(color = Color.Transparent) {
+                        ChatScreen(
+                            isRecording = isRecording,
+                            isPreparing = isPreparing,
+                            onStartRecording = {
+                                restartRecordingProcess()
+                            },
+                            onStopRecording = { stopRecording() },
+                            onCancelRecording = { cancelRecording() },
+                            onCloseApp = { performGracefulShutdown() },
+                            onWindowDrag = { deltaX, deltaY ->
+                                params.x += deltaX.toInt()
+                                params.y += deltaY.toInt()
+                                try {
+                                    windowManager.updateViewLayout(composeView, params)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            },
+                            onWindowResize = { deltaWidth, deltaHeight ->
+                                val rawWidth = params.width + deltaWidth.toInt()
+                                val rawHeight = params.height + deltaHeight.toInt()
 
-                            updateWindow(params)
-                        },
-                        onResetTranscript = { resetTranscript() },
-                        onUpdateTranscript = { newText -> updateTranscriptManual(newText) }
-                    )
+                                val maxWidthAllowed = screenWidth - params.x
+                                val maxHeightAllowed = screenHeight - params.y
+
+                                params.width = rawWidth.coerceIn(minWidth, maxWidthAllowed)
+                                params.height = rawHeight.coerceIn(minHeight, maxHeightAllowed)
+
+                                updateWindow(params)
+                            },
+                            onResetTranscript = { resetTranscript() },
+                            onUpdateTranscript = { newText -> updateTranscriptManual(newText) }
+                        )
+                    }
                 }
             }
         }
@@ -183,8 +199,12 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
         if (intent?.action == "START_RECORDING") {
             val resultCode = intent.getIntExtra("EXTRA_RESULT_CODE", 0)
-//            val resultData = intent.getParcelableExtra("EXTRA_RESULT_DATA", Intent::class.java)
-            val resultData = intent.getParcelableExtra<Intent>("EXTRA_RESULT_DATA")
+            val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra("EXTRA_RESULT_DATA", Intent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra("EXTRA_RESULT_DATA") as? Intent
+            }
             val sessionId = intent.getLongExtra("EXTRA_SESSION_ID", -1L)
 
             if (resultCode != 0 && resultData != null) {
@@ -265,6 +285,19 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             val mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
             this.mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultData)
+            this.mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+                override fun onStop() {
+                    super.onStop()
+                    Log.w("OverlayService", "MediaProjection dihentikan oleh sistem/aplikasi lain!")
+
+                    stopRecording()
+                    Toast.makeText(
+                        this@OverlayService,
+                        "MediaProjection dihentikan oleh sistem/aplikasi lain!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }, Handler(Looper.getMainLooper()))
 
             if (this.mediaProjection == null) {
                 Log.e("OverlayService", "MediaProjection gagal (null)")
