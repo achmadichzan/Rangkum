@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
-
     private val dao = AppDatabase.getDatabase(application).chatDao()
     private val userPreferences = UserPreferences(application)
 
@@ -20,7 +19,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
-
     val isDarkMode = userPreferences.isDarkMode
         .stateIn(
             scope = viewModelScope,
@@ -28,7 +26,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = null
         )
 
-    fun toggleTheme(currentValue: Boolean?) { // Terima Boolean?
+    fun toggleTheme(currentValue: Boolean?) {
         viewModelScope.launch {
             val nextValue = !(currentValue ?: false)
             userPreferences.toggleTheme(nextValue)

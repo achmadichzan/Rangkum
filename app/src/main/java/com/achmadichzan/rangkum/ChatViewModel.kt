@@ -31,23 +31,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = AppDatabase.getDatabase(application).chatDao()
     private val userPreferences = UserPreferences(application)
     private var currentSessionId: Long? = null
-
     private val model = Firebase.ai(backend = GenerativeBackend.googleAI())
         .generativeModel("gemini-2.5-flash")
-
     private var chatSession = model.startChat()
 
     val messages = mutableStateListOf<ChatMessage>()
-
     var userInput by mutableStateOf("")
         private set
-
     var isLoading by mutableStateOf(false)
         private set
-
     var liveTranscript by mutableStateOf("")
         private set
-
     val isDarkMode = userPreferences.isDarkMode
         .stateIn(
             scope = viewModelScope,
@@ -67,7 +61,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
     fun loadHistorySession(sessionId: Long) {
         isLoading = true
         currentSessionId = sessionId
@@ -90,7 +83,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
     private fun saveMessageToDb(text: String, isUser: Boolean) {
         val sessionId = currentSessionId ?: return
         viewModelScope.launch(Dispatchers.IO) {
@@ -99,11 +91,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
     }
-
     fun onInputChange(newValue: String) { userInput = newValue }
     fun updateLiveTranscript(text: String) { liveTranscript = text }
     fun clearLiveTranscript() { liveTranscript = "" }
-
     fun sendMessage() {
         val currentMessage = userInput.trim()
         if (currentMessage.isEmpty()) return
@@ -135,7 +125,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
     fun sendTextToGemini(transcript: String) {
         isLoading = true
         messages.add(ChatMessage("Transkrip Selesai. Mengirim ke AI...", isUser = true))

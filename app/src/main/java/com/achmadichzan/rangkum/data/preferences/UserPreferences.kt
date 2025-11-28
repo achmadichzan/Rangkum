@@ -12,11 +12,6 @@ import kotlinx.coroutines.flow.map
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class UserPreferences(private val context: Context) {
-
-    companion object {
-        private val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
-    }
-
     val isDarkMode: Flow<Boolean?> = context.dataStore.data
         .map { preferences ->
             preferences[IS_DARK_MODE]
@@ -26,5 +21,9 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[IS_DARK_MODE] = isDark
         }
+    }
+
+    companion object {
+        private val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
     }
 }

@@ -3,6 +3,7 @@ package com.achmadichzan.rangkum
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
@@ -230,7 +231,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
         startForegroundServiceNotification()
 
-        if (intent?.action == "START_RECORDING") {
+        if (intent?.action == START_RECORDING) {
             val resultCode = intent.getIntExtra("EXTRA_RESULT_CODE", 0)
             val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra("EXTRA_RESULT_DATA", Intent::class.java)
@@ -271,6 +272,17 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                 }, 1000)
             }
         }
+        if (intent?.action == ACTION_STOP) {
+            if (isRecording) {
+                stopRecording()
+
+                if (isCollapsed) {
+                    toggleCollapse()
+                }
+            }
+            return START_NOT_STICKY
+        }
+
         return START_STICKY
     }
 
@@ -288,17 +300,33 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             val channel = NotificationChannel(
                 channelId,
                 "Floating Service",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
-        val notification = NotificationCompat.Builder(this, channelId)
+        val stopIntent = Intent(this, OverlayService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            0,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Rangkum AI")
-            .setContentText("Siap merekam audio system...")
+            .setContentText(if (isRecording) "Sedang merekam..." else "Siap (Standby)")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        if (isRecording) {
+            notificationBuilder.addAction(
+                android.R.drawable.ic_media_pause,
+                "STOP & RANGKUM",
+                stopPendingIntent
+            )
+        }
+        val notification = notificationBuilder.build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -387,6 +415,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
         isPreparing = false
         isRecording = true
         isCancelled = false
+
+        startForegroundServiceNotification()
+
         finalTranscript.clear()
 
         chatViewModel.clearLiveTranscript()
@@ -410,7 +441,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             }
 
             if (voskRecognizer == null && voskModel != null) {
-                voskRecognizer = Recognizer(voskModel, 44100.0f)
+                voskRecognizer = Recognizer(voskModel, 16000.0f)
             }
             voskRecognizer?.reset()
 
@@ -418,10 +449,10 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                 chatViewModel.updateLiveTranscript("")
             }
 
-            val bufferSize = 8192
+            val bufferSize = 12288
             val buffer = ByteArray(bufferSize)
             var lastUiUpdateTime = 0L
-            val uiUpdateInterval = 150L
+            val uiUpdateInterval = 200L
 
             try {
                 while (isRecording) {
@@ -436,7 +467,6 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
                             if (text.isNotEmpty()) {
                                 finalTranscript.append(text).append(" ")
-
                                 val currentFullText = finalTranscript.toString()
                                 withContext(Dispatchers.Main) {
                                     chatViewModel.updateLiveTranscript(currentFullText)
@@ -445,7 +475,6 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                         } else {
                             val currentTime = System.currentTimeMillis()
                             if (currentTime - lastUiUpdateTime > uiUpdateInterval) {
-
                                 val partialJson = voskRecognizer!!.partialResult
                                 val partialText = parseVoskPartial(partialJson)
 
@@ -472,6 +501,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                 val fullText = finalTranscript.toString()
                 withContext(Dispatchers.Main) {
                     chatViewModel.updateLiveTranscript(fullText)
+
                     if (!isCancelled && fullText.isNotBlank()) {
                         chatViewModel.sendTextToGemini(fullText)
                     } else if (isCancelled) {
@@ -488,6 +518,8 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private fun stopRecording() {
         isRecording = false
         isCancelled = false
+
+        startForegroundServiceNotification()
     }
 
     private fun cancelRecording() {
@@ -600,5 +632,10 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             windowManager.removeView(composeView)
         }
         myViewModelStore.clear()
+    }
+
+    companion object {
+        const val ACTION_STOP = "com.achmadichzan.rangkum.ACTION_STOP"
+        const val START_RECORDING = "com.achmadichzan.rangkum.START_RECORDING"
     }
 }

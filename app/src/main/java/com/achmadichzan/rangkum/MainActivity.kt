@@ -273,7 +273,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startOverlayService(resultCode: Int, data: Intent) {
         val intent = Intent(this, OverlayService::class.java).apply {
-            action = "START_RECORDING"
+            action = OverlayService.START_RECORDING
             putExtra("EXTRA_RESULT_CODE", resultCode)
             putExtra("EXTRA_RESULT_DATA", data)
             putExtra("EXTRA_SESSION_ID", pendingSessionId)
