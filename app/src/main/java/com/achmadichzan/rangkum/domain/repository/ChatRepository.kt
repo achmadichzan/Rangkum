@@ -11,4 +11,5 @@ interface ChatRepository {
     suspend fun saveMessage(sessionId: Long, text: String, isUser: Boolean)
     suspend fun deleteSession(sessionId: Long)
     suspend fun renameSession(sessionId: Long, newTitle: String)
+    fun searchSessions(query: String): Flow<List<Session>>
 }

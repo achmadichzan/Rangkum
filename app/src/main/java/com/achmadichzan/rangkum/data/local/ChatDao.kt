@@ -22,4 +22,7 @@ interface ChatDao {
 
     @Query("UPDATE chat_sessions SET title = :title WHERE id = :sessionId")
     suspend fun updateSessionTitle(sessionId: Long, title: String)
+
+    @Query("SELECT * FROM chat_sessions WHERE title LIKE '%' || :query || '%' ORDER BY timestamp DESC")
+    fun searchSessions(query: String): Flow<List<ChatSessionEntity>>
 }

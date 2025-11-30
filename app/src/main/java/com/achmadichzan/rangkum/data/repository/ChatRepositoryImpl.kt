@@ -44,6 +44,12 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         chatDao.updateSessionTitle(sessionId, newTitle)
     }
 
+    override fun searchSessions(query: String): Flow<List<Session>> {
+        return chatDao.searchSessions(query).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
+
     private fun ChatSessionEntity.toDomain(): Session {
         return Session(
             id = this.id,

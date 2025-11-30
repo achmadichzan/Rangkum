@@ -8,8 +8,12 @@ import kotlinx.coroutines.flow.Flow
 class GetHistoryUseCase(
     private val chatRepository: ChatRepository
 ) {
-    fun getAllSessions(): Flow<List<Session>> {
-        return chatRepository.getAllSessions()
+    fun getSessions(query: String = ""): Flow<List<Session>> {
+        return if (query.isBlank()) {
+            chatRepository.getAllSessions()
+        } else {
+            chatRepository.searchSessions(query)
+        }
     }
 
     suspend fun getMessages(sessionId: Long): List<Message> {

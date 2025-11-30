@@ -45,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.achmadichzan.rangkum.domain.model.Session
 import com.achmadichzan.rangkum.presentation.components.HistoryItem
 import com.achmadichzan.rangkum.presentation.components.RenameDialog
+import com.achmadichzan.rangkum.presentation.components.SearchBar
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodel.MainViewModel
 import com.achmadichzan.rangkum.presentation.viewmodel.ViewModelFactory
@@ -57,6 +58,7 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
     val sessions by viewModel.allSessions.collectAsState()
     var showRenameDialog by remember { mutableStateOf(false) }
     var sessionToRename by remember { mutableStateOf<Session?>(null) }
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val userPrefDark by viewModel.isDarkMode.collectAsState()
     val systemDark = isSystemInDarkTheme()
     val isDarkFinal = userPrefDark ?: systemDark
@@ -64,30 +66,28 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
     RangkumTheme(darkTheme = isDarkFinal) {
         Scaffold(
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            "Rangkum AI",
-                            fontWeight = FontWeight.Bold
+                Column {
+                    CenterAlignedTopAppBar(
+                        title = { Text("Rangkum AI", fontWeight = FontWeight.Bold) },
+                        actions = {
+                            IconButton(onClick = { viewModel.toggleTheme(isDarkFinal) }) {
+                                Icon(
+                                    imageVector = if (isDarkFinal) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                    contentDescription = "Ganti Tema"
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface
                         )
-                    },
-                    actions = {
-                        IconButton(onClick = {
-                            viewModel.toggleTheme(isDarkFinal)
-                        }) {
-                            Icon(
-                                imageVector =
-                                    if (isDarkFinal) Icons.Default.LightMode
-                                    else Icons.Default.DarkMode,
-                                contentDescription = "Ganti Tema"
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface
                     )
-                )
+
+                    SearchBar(
+                        query = searchQuery,
+                        onQueryChange = viewModel::onSearchQueryChange
+                    )
+                }
             },
             floatingActionButton = {
                 FloatingActionButton(
