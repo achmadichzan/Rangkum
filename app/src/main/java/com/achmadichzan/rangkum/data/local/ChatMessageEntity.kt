@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
     tableName = "chat_messages",
     foreignKeys = [
         ForeignKey(
-            entity = ChatSession::class,
+            entity = ChatSessionEntity::class,
             parentColumns = ["id"],
             childColumns = ["sessionId"],
             onDelete = ForeignKey.CASCADE

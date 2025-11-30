@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Base.Theme.Rangkum" parent="Theme.Material3.DayNight.NoActionBar" />
 
-    <style name="Theme.Rangkum" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Rangkum" parent="Base.Theme.Rangkum" />
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/avd_rangkum</item>
+        <item name="postSplashScreenTheme">@style/Theme.Rangkum</item>
+    </style>
 </resources>

@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "com.achmadichzan.rangkum"
-        minSdk = 24
+        minSdk = 29
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -69,13 +69,14 @@ dependencies {
     implementation(libs.androidx.savedstate.ktx)
 
     implementation(libs.vosk.android)
-    implementation(libs.multiplatform.markdown.renderer.android)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.material)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
