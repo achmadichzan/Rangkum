@@ -1,11 +1,17 @@
 package com.achmadichzan.rangkum.presentation.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.achmadichzan.rangkum.domain.repository.ChatRepository
 import com.achmadichzan.rangkum.domain.repository.SettingsRepository
 import com.achmadichzan.rangkum.domain.usecase.DeleteSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
+import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +26,9 @@ class MainViewModel(
     private val getHistoryUseCase: GetHistoryUseCase,
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val renameSessionUseCase: RenameSessionUseCase,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val getYoutubeTranscriptUseCase: GetYoutubeTranscriptUseCase,
+    private val chatRepository: ChatRepository
 ) : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
@@ -44,6 +52,12 @@ class MainViewModel(
             initialValue = null
         )
 
+    var isYoutubeLoading by mutableStateOf(false)
+        private set
+
+    var youtubeError by mutableStateOf<String?>(null)
+        private set
+
     fun deleteSession(sessionId: Long) {
         viewModelScope.launch {
             deleteSessionUseCase(sessionId)
@@ -65,4 +79,29 @@ class MainViewModel(
             settingsRepository.toggleTheme(!isDark)
         }
     }
+
+    fun processYoutubeLink(url: String, onSuccess: (Long) -> Unit) {
+        isYoutubeLoading = true
+        youtubeError = null
+
+        viewModelScope.launch {
+            try {
+                val response = getYoutubeTranscriptUseCase(url)
+                val rawTranscript = response.transcript ?: ""
+                val videoTitle = response.title ?: "Rangkuman YouTube"
+                val fullPrompt = PromptUtils.create(rawTranscript)
+                val sessionId = chatRepository.createSession(videoTitle)
+
+                chatRepository.saveMessage(sessionId, fullPrompt, isUser = true)
+
+                onSuccess(sessionId)
+            } catch (e: Exception) {
+                youtubeError = e.message ?: "Terjadi kesalahan"
+            } finally {
+                isYoutubeLoading = false
+            }
+        }
+    }
+
+    fun clearError() { youtubeError = null }
 }

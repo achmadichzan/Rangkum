@@ -22,7 +22,9 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 getHistoryUseCase = Injection.provideGetHistoryUseCase(context),
                 deleteSessionUseCase = Injection.provideDeleteSessionUseCase(context),
                 renameSessionUseCase = Injection.provideRenameSessionUseCase(context),
-                settingsRepository = Injection.provideSettingsRepository(context)
+                settingsRepository = Injection.provideSettingsRepository(context),
+                getYoutubeTranscriptUseCase = Injection.provideGetYoutubeTranscriptUseCase(),
+                chatRepository = Injection.provideChatRepository(context)
             ) as T
         }
 

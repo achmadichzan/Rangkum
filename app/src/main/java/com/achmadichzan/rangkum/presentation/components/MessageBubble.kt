@@ -108,7 +108,9 @@ fun MessageBubble(
                         }
                         Button(
                             onClick = {
+                                message.text = editedText.text
                                 message.isEditing = false
+
                                 onEditSave(editedText.text)
                             },
                             modifier = Modifier.padding(start = 8.dp)

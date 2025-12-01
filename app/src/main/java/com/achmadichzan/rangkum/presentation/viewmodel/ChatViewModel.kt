@@ -12,6 +12,7 @@ import com.achmadichzan.rangkum.domain.repository.SettingsRepository
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
 import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
+import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -109,33 +110,19 @@ class ChatViewModel(
     }
 
     fun sendTextToGemini(transcript: String) {
-        val fullPrompt = createPrompt(transcript)
+        val fullPrompt = PromptUtils.create(transcript)
 
         sendMessageCore(fullPrompt)
     }
 
     fun regenerateResponse(newPrompt: String) {
-
         val lastUserIndex = messages.indexOfLast { it.isUser }
         if (lastUserIndex != -1) {
             messages[lastUserIndex].text = newPrompt
         }
+        val hasAiBubble = messages.any { !it.isUser }
 
-        sendMessageCore(newPrompt, isRetry = true)
-    }
-
-    private fun createPrompt(transcript: String): String {
-        return """
-            Berikut adalah transkrip mentah dari speech-to-text yang mungkin mengandung typo karena kemiripan suara:
-            
-            "$transcript"
-            
-            Instruksi Khusus:
-            1. Pahami konteks dan perbaiki kesalahan ejaan/tata bahasa secara internal.
-            2. JANGAN mengulang teks asli.
-            3. Buatlah kesimpulan singkat lalu rangkum ke poin-poin penting (Bullet Points) dalam Bahasa Indonesia yang jelas dan padat.
-            4. Gunakan format Markdown.
-        """.trimIndent()
+        sendMessageCore(newPrompt, isRetry = hasAiBubble)
     }
 
     private fun sendMessageCore(promptText: String, isRetry: Boolean = false) {
@@ -148,27 +135,33 @@ class ChatViewModel(
                 }
                 val sessionId = currentSessionId!!
 
-                if (!isRetry) {
+                if (messages.isEmpty() || !messages.last().isUser) {
                     messages.add(UiMessage(initialText = promptText, isUser = true))
-
-                    val aiMessage = UiMessage(initialText = "", isUser = false, initialIsStreaming = true)
-                    messages.add(aiMessage)
-                } else {
-                    val lastAiIndex = messages.indexOfLast { !it.isUser }
-                    if (lastAiIndex != -1) {
-                        messages[lastAiIndex] = messages[lastAiIndex].copy(
-                            isError = false,
-                            initialText = "",
-                            initialIsStreaming = true
-                        )
-                        messages[lastAiIndex].text = ""
-                    }
                 }
 
-                val aiMessage = messages.last { !it.isUser }
+                val lastAiIndex = messages.indexOfLast { !it.isUser }
+
+                val targetAiMessage: UiMessage
+
+                if (isRetry && lastAiIndex != -1) {
+                    val oldMsg = messages[lastAiIndex]
+
+                    messages[lastAiIndex] = oldMsg.copy(
+                        isError = false,
+                        initialText = "",
+                        initialIsStreaming = true
+                    )
+                    messages[lastAiIndex].text = ""
+
+                    targetAiMessage = messages[lastAiIndex]
+                } else {
+                    val newMsg = UiMessage(initialText = "", isUser = false, initialIsStreaming = true)
+                    messages.add(newMsg)
+                    targetAiMessage = newMsg
+                }
 
                 summarizeUseCase(sessionId, promptText).collect { chunk ->
-                    aiMessage.text += chunk
+                    targetAiMessage.text += chunk
                 }
 
             } catch (e: Exception) {
