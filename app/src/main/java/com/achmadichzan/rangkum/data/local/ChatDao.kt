@@ -12,6 +12,8 @@ interface ChatDao {
     suspend fun insertSession(session: ChatSessionEntity): Long
     @Query("SELECT * FROM chat_sessions ORDER BY timestamp DESC")
     fun getAllSessions(): Flow<List<ChatSessionEntity>>
+    @Query("SELECT * FROM chat_sessions WHERE id = :id")
+    suspend fun getSessionById(id: Long): ChatSessionEntity?
     @Insert
     suspend fun insertMessage(message: ChatMessageEntity)
     @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")

@@ -5,16 +5,20 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +44,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,9 +56,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
@@ -81,6 +89,10 @@ fun DetailChatScreen(
             else visibleItemsInfo.last().index >= layoutInfo.totalItemsCount - 1
         }
     }
+    var selectedMessage by remember { mutableStateOf<UiMessage?>(null) }
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     LaunchedEffect(viewModel.messages.size, lastMessageText) {
         if (viewModel.messages.isNotEmpty()) {
@@ -91,20 +103,24 @@ fun DetailChatScreen(
         }
     }
 
-    var selectedMessage by remember { mutableStateOf<UiMessage?>(null) }
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-
     RangkumTheme(darkTheme = isDarkFinal) {
         Scaffold(
+            modifier = Modifier.fillMaxSize().imePadding()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 TopAppBar(
-                    title = { Text("Detail Percakapan") },
+                    title = { Text(
+                        text = viewModel.sessionTitle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 17.sp
+                    ) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali")
                         }
-                    }
+                    },
+                    scrollBehavior = scrollBehavior,
                 )
             },
             bottomBar = {
@@ -136,7 +152,10 @@ fun DetailChatScreen(
                             value = viewModel.userInput,
                             onValueChange = { viewModel.onInputChange(it) },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Lanjut tanya AI...") },
+                            placeholder = {
+                                if (viewModel.messages.isEmpty()) Text("Tanyakan sesuatu...")
+                                else Text("Lanjut tanya AI...")
+                            },
                             maxLines = 3,
                             shape = RoundedCornerShape(24.dp)
                         )
@@ -156,7 +175,8 @@ fun DetailChatScreen(
                         }
                     }
                 }
-            }
+            },
+            contentWindowInsets = WindowInsets.safeDrawing
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -164,7 +184,7 @@ fun DetailChatScreen(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
             ) {
-
+                Box(modifier = Modifier.size(1.dp).focusable())
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)
@@ -205,6 +225,13 @@ fun DetailChatScreen(
                             }
                         }
                     }
+                }
+
+                if (viewModel.messages.isEmpty()) {
+                    Text(
+                        "Belum ada percakapan.",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
 
                 AnimatedVisibility(

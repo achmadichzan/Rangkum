@@ -16,6 +16,10 @@ class GetHistoryUseCase(
         }
     }
 
+    suspend fun getSession(sessionId: Long): Session? {
+        return chatRepository.getSessionById(sessionId)
+    }
+
     suspend fun getMessages(sessionId: Long): List<Message> {
         return chatRepository.getMessagesBySessionId(sessionId)
     }

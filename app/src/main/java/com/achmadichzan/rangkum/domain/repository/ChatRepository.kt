@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ChatRepository {
     fun getAllSessions(): Flow<List<Session>>
+    suspend fun getSessionById(sessionId: Long): Session?
     suspend fun createSession(title: String): Long
     suspend fun getMessagesBySessionId(sessionId: Long): List<Message>
     suspend fun saveMessage(sessionId: Long, text: String, isUser: Boolean)

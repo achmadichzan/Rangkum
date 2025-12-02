@@ -39,6 +39,8 @@ class ChatViewModel(
             initialValue = null
         )
     private var currentSessionId: Long? = null
+    var sessionTitle by mutableStateOf("Detail Percakapan")
+        private set
 
     fun onInputChange(newValue: String) {
         userInput = newValue
@@ -64,16 +66,19 @@ class ChatViewModel(
     }
 
     fun loadHistorySession(sessionId: Long) {
-        isLoading = true
         currentSessionId = sessionId
 
         viewModelScope.launch {
+            val session = getHistoryUseCase.getSession(sessionId)
+            if (session != null) {
+                sessionTitle = session.title
+            }
+
             val historyDomain = getHistoryUseCase.getMessages(sessionId)
 
             withContext(Dispatchers.Main) {
                 messages.clear()
                 messages.addAll(historyDomain.map { it.toUiModel() })
-                isLoading = false
             }
         }
     }

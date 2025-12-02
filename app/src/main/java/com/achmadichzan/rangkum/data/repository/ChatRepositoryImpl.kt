@@ -16,6 +16,10 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         }
     }
 
+    override suspend fun getSessionById(sessionId: Long): Session? {
+        return chatDao.getSessionById(sessionId)?.toDomain()
+    }
+
     override suspend fun createSession(title: String): Long {
         return chatDao.insertSession(
             ChatSessionEntity(title = title)
