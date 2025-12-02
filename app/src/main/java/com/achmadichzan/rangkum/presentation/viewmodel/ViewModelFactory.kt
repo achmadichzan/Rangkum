@@ -21,6 +21,7 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
             return MainViewModel(
                 getHistoryUseCase = Injection.provideGetHistoryUseCase(context),
                 deleteSessionUseCase = Injection.provideDeleteSessionUseCase(context),
+                restoreSessionUseCase = Injection.provideRestoreSessionUseCase(context),
                 renameSessionUseCase = Injection.provideRenameSessionUseCase(context),
                 settingsRepository = Injection.provideSettingsRepository(context),
                 getYoutubeTranscriptUseCase = Injection.provideGetYoutubeTranscriptUseCase(),

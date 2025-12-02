@@ -26,6 +26,15 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         )
     }
 
+    override suspend fun createSessionWithId(session: Session): Long {
+        val entity = ChatSessionEntity(
+            id = session.id,
+            title = session.title,
+            timestamp = session.timestamp
+        )
+        return chatDao.insertSession(entity)
+    }
+
     override suspend fun getMessagesBySessionId(sessionId: Long): List<Message> {
         return chatDao.getMessagesBySessionId(sessionId).map { it.toDomain() }
     }

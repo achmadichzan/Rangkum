@@ -16,6 +16,7 @@ import com.achmadichzan.rangkum.domain.usecase.DeleteSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.RestoreSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
 import io.ktor.client.HttpClient
@@ -84,5 +85,10 @@ object Injection {
 
     fun provideGetYoutubeTranscriptUseCase(): GetYoutubeTranscriptUseCase {
         return GetYoutubeTranscriptUseCase(provideYoutubeRepository())
+    }
+
+    fun provideRestoreSessionUseCase(context: Context): RestoreSessionUseCase {
+        val repository = provideChatRepository(context)
+        return RestoreSessionUseCase(repository)
     }
 }
