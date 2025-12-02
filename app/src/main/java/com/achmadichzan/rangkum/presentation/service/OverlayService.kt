@@ -35,7 +35,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.achmadichzan.rangkum.MainActivity
 import com.achmadichzan.rangkum.domain.model.UiMessage
-import com.achmadichzan.rangkum.presentation.screen.ChatScreen
+import com.achmadichzan.rangkum.presentation.screen.OverlayChatScreen
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodel.ChatViewModel
 import com.achmadichzan.rangkum.presentation.viewmodel.ViewModelFactory
@@ -146,7 +146,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
                 RangkumTheme(darkTheme = isDarkFinal) {
                     Surface(color = Color.Transparent) {
-                        ChatScreen(
+                        OverlayChatScreen(
                             viewModel = chatViewModel,
                             isRecording = isRecording,
                             isPreparing = isAudioPreparing,

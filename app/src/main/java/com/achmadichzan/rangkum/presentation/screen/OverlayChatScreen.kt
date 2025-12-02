@@ -89,7 +89,7 @@ import com.achmadichzan.rangkum.presentation.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun ChatScreen(
+fun OverlayChatScreen(
     viewModel: ChatViewModel,
     isPreparing: Boolean,
     isRecording: Boolean,

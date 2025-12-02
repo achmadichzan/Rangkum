@@ -14,7 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.achmadichzan.rangkum.presentation.screen.MainScreen
+import com.achmadichzan.rangkum.presentation.navigation.AppNavigation
 import com.achmadichzan.rangkum.presentation.service.OverlayService
 
 class MainActivity : ComponentActivity() {
@@ -64,9 +64,11 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { keepSplash }
 
         setContent {
-            MainScreen { sessionId ->
-                checkOverlayPermissionAndStart(sessionId)
-            }
+            AppNavigation(
+                onStartOverlaySession = { sessionId ->
+                    checkOverlayPermissionAndStart(sessionId)
+                }
+            )
         }
         keepSplash = false
     }

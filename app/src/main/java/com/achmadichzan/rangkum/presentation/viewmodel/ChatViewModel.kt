@@ -135,12 +135,11 @@ class ChatViewModel(
                 }
                 val sessionId = currentSessionId!!
 
-                if (messages.isEmpty() || !messages.last().isUser) {
+                if (!isRetry) {
                     messages.add(UiMessage(initialText = promptText, isUser = true))
                 }
 
                 val lastAiIndex = messages.indexOfLast { !it.isUser }
-
                 val targetAiMessage: UiMessage
 
                 if (isRetry && lastAiIndex != -1) {
