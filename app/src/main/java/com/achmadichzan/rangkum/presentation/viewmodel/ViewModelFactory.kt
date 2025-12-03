@@ -13,7 +13,9 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 sendMessageUseCase = Injection.provideSendMessageUseCase(context),
                 summarizeUseCase = Injection.provideSummarizeUseCase(context),
                 getHistoryUseCase = Injection.provideGetHistoryUseCase(context),
-                settingsRepository = Injection.provideSettingsRepository(context)
+                updateMessageUseCase = Injection.provideUpdateMessageUseCase(context),
+                settingsRepository = Injection.provideSettingsRepository(context),
+                chatRepository = Injection.provideChatRepository(context)
             ) as T
         }
 

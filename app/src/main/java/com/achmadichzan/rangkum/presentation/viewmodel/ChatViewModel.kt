@@ -8,10 +8,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.domain.repository.ChatRepository
 import com.achmadichzan.rangkum.domain.repository.SettingsRepository
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
 import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
 import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +25,8 @@ class ChatViewModel(
     private val sendMessageUseCase: SendMessageUseCase,
     private val summarizeUseCase: SummarizeTranscriptUseCase,
     private val getHistoryUseCase: GetHistoryUseCase,
+    private val updateMessageUseCase: UpdateMessageUseCase,
+    private val chatRepository: ChatRepository,
     settingsRepository: SettingsRepository
 ) : ViewModel() {
     val messages = mutableStateListOf<UiMessage>()
@@ -56,7 +60,9 @@ class ChatViewModel(
 
     fun startNewSession() {
         viewModelScope.launch {
-            currentSessionId = getHistoryUseCase.createNewSession("Percakapan Baru ${System.currentTimeMillis()}")
+            currentSessionId = getHistoryUseCase.createNewSession(
+                "Percakapan Baru ${System.currentTimeMillis()}"
+            )
 
             withContext(Dispatchers.Main) {
                 messages.clear()
@@ -117,71 +123,87 @@ class ChatViewModel(
     fun sendTextToGemini(transcript: String) {
         val fullPrompt = PromptUtils.create(transcript)
 
-        sendMessageCore(fullPrompt)
+        viewModelScope.launch {
+            if (currentSessionId == null) {
+                currentSessionId = getHistoryUseCase.createNewSession(
+                    "Transkrip ${System.currentTimeMillis()}"
+                )
+            }
+            val sessionId = currentSessionId!!
+
+            val msgId = chatRepository.saveMessage(sessionId, fullPrompt, isUser = true)
+
+            messages.add(
+                UiMessage(
+                    id = msgId.toString(),
+                    initialText = fullPrompt,
+                    isUser = true
+                )
+            )
+
+            sendMessageCore(fullPrompt, isRetry = false)
+        }
     }
 
     fun regenerateResponse(newPrompt: String) {
-        val lastUserIndex = messages.indexOfLast { it.isUser }
-        if (lastUserIndex != -1) {
-            messages[lastUserIndex].text = newPrompt
-        }
-        val hasAiBubble = messages.any { !it.isUser }
+        viewModelScope.launch {
+            val lastUserMsg = messages.lastOrNull { it.isUser }
 
-        sendMessageCore(newPrompt, isRetry = hasAiBubble)
+            if (lastUserMsg != null) {
+                lastUserMsg.text = newPrompt
+
+                val dbId = lastUserMsg.id.toLongOrNull()
+                if (dbId != null) {
+                    updateMessageUseCase(dbId, newPrompt)
+                }
+            }
+
+            val hasAiBubble = messages.any { !it.isUser }
+            sendMessageCore(newPrompt, isRetry = hasAiBubble)
+        }
     }
 
-    private fun sendMessageCore(promptText: String, isRetry: Boolean = false) {
+    private suspend fun sendMessageCore(promptText: String, isRetry: Boolean) {
         isLoading = true
 
-        viewModelScope.launch {
-            try {
-                if (currentSessionId == null) {
-                    currentSessionId = getHistoryUseCase.createNewSession("Transkrip ${System.currentTimeMillis()}")
-                }
-                val sessionId = currentSessionId!!
+        try {
+            val sessionId = currentSessionId!!
+            val targetAiMessage: UiMessage
 
-                if (!isRetry) {
-                    messages.add(UiMessage(initialText = promptText, isUser = true))
-                }
+            val lastAiIndex = messages.indexOfLast { !it.isUser }
 
-                val lastAiIndex = messages.indexOfLast { !it.isUser }
-                val targetAiMessage: UiMessage
-
-                if (isRetry && lastAiIndex != -1) {
-                    val oldMsg = messages[lastAiIndex]
-
-                    messages[lastAiIndex] = oldMsg.copy(
-                        isError = false,
-                        initialText = "",
-                        initialIsStreaming = true
-                    )
-                    messages[lastAiIndex].text = ""
-
-                    targetAiMessage = messages[lastAiIndex]
-                } else {
-                    val newMsg = UiMessage(initialText = "", isUser = false, initialIsStreaming = true)
-                    messages.add(newMsg)
-                    targetAiMessage = newMsg
-                }
-
-                summarizeUseCase(sessionId, promptText).collect { chunk ->
-                    targetAiMessage.text += chunk
-                }
-
-            } catch (e: Exception) {
-                val lastAiIndex = messages.indexOfLast { !it.isUser }
-                if (lastAiIndex != -1) {
-                    val errorMsg = messages[lastAiIndex].copy(
-                        isError = true,
-                        initialText = "Gagal memuat: ${e.message}"
-                    )
-                    errorMsg.text = "Gagal memuat: ${e.message}"
-                    messages[lastAiIndex] = errorMsg
-                }
-            } finally {
-                messages.lastOrNull { !it.isUser }?.isStreaming = false
-                isLoading = false
+            if (isRetry && lastAiIndex != -1) {
+                val oldMsg = messages[lastAiIndex]
+                messages[lastAiIndex] = oldMsg.copy(
+                    isError = false,
+                    initialText = "",
+                    initialIsStreaming = true
+                )
+                messages[lastAiIndex].text = ""
+                targetAiMessage = messages[lastAiIndex]
+            } else {
+                val newMsg = UiMessage(initialText = "", isUser = false, initialIsStreaming = true)
+                messages.add(newMsg)
+                targetAiMessage = newMsg
             }
+
+            summarizeUseCase(sessionId, promptText).collect { chunk ->
+                targetAiMessage.text += chunk
+            }
+
+        } catch (e: Exception) {
+            val lastAiIndex = messages.indexOfLast { !it.isUser }
+            if (lastAiIndex != -1) {
+                val errorMsg = messages[lastAiIndex].copy(
+                    isError = true,
+                    initialText = "Gagal memuat: ${e.message}"
+                )
+                errorMsg.text = "Gagal memuat: ${e.message}"
+                messages[lastAiIndex] = errorMsg
+            }
+        } finally {
+            messages.lastOrNull { !it.isUser }?.isStreaming = false
+            isLoading = false
         }
     }
 

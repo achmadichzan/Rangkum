@@ -1,8 +1,14 @@
 package com.achmadichzan.rangkum.presentation.screen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,6 +22,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -54,6 +62,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -90,6 +99,8 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
     var showYoutubeDialog by remember { mutableStateOf(false) }
     var youtubeLink by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    var isFabVisible by remember { mutableStateOf(true) }
 
     LaunchedEffect(true) {
         viewModel.uiEvent.collect { event ->
@@ -109,6 +120,32 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
         }
     }
 
+    LaunchedEffect(listState) {
+        var prevIndex = 0
+        var prevOffset = 0
+
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .collect { (currIndex, currOffset) ->
+                if (listState.isScrollInProgress) {
+                    if (currIndex != prevIndex || currOffset != prevOffset) {
+                        val isScrollingDown = if (currIndex != prevIndex) {
+                            currIndex > prevIndex
+                        } else {
+                            currOffset > prevOffset
+                        }
+
+                        isFabVisible = !isScrollingDown || currIndex == 0
+                    }
+                }
+                else if (currIndex == 0) {
+                    isFabVisible = true
+                }
+
+                prevIndex = currIndex
+                prevOffset = currOffset
+            }
+    }
+
     RangkumTheme(darkTheme = isDarkFinal) {
         Scaffold(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -116,16 +153,11 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
                 CenterAlignedTopAppBar(
                     title = { Text("Rangkum AI", fontWeight = FontWeight.Bold) },
                     actions = {
-                        IconButton(onClick = { showYoutubeDialog = true }) {
-                            Icon(
-                                painter = painterResource(R.drawable.youtube),
-                                contentDescription = "Paste YouTube Link"
-                            )
-                        }
-
                         IconButton(onClick = { viewModel.toggleTheme(isDarkFinal) }) {
                             Icon(
-                                imageVector = if (isDarkFinal) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                imageVector =
+                                    if (isDarkFinal) Icons.Default.LightMode
+                                    else Icons.Default.DarkMode,
                                 contentDescription = "Ganti Tema"
                             )
                         }
@@ -138,41 +170,60 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(
-                    onClick = {
-                        onStartSession(-1L)
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary
+                AnimatedVisibility(
+                    visible = isFabVisible,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
                 ) {
-                    Icon(Icons.Default.Add, "Chat Baru")
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        SmallFloatingActionButton(
+                            onClick = { showYoutubeDialog = true },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.youtube),
+                                contentDescription = "Paste YouTube Link"
+                            )
+                        }
+
+                        FloatingActionButton(
+                            onClick = { onStartSession(-1L) },
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ) {
+                            Icon(Icons.Default.Add, "Chat Baru")
+                        }
+                    }
                 }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) { data ->
-                    Snackbar(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        containerColor = MaterialTheme.colorScheme.inverseSurface,
-                        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                        shape = RoundedCornerShape(8.dp),
-                        action = {
-                            data.visuals.actionLabel?.let { actionLabel ->
-                                TextButton(
-                                    onClick = { data.performAction() },
-                                    colors = ButtonDefaults.textButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.inversePrimary
-                                    )
-                                ) {
-                                    Text(actionLabel)
-                                }
+                Snackbar(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    shape = RoundedCornerShape(8.dp),
+                    action = {
+                        data.visuals.actionLabel?.let { actionLabel ->
+                            TextButton(
+                                onClick = { data.performAction() },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.inversePrimary
+                                )
+                            ) {
+                                Text(actionLabel)
                             }
                         }
-                    ) {
-                        Text(
-                            text = data.visuals.message,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
                     }
-                }
+                ) {
+                    Text(
+                        text = data.visuals.message,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } }
             },
             contentWindowInsets = WindowInsets.safeDrawing
         ) { innerPadding ->
@@ -188,6 +239,7 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
                 )
 
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp)
                 ) {

@@ -39,14 +39,18 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         return chatDao.getMessagesBySessionId(sessionId).map { it.toDomain() }
     }
 
-    override suspend fun saveMessage(sessionId: Long, text: String, isUser: Boolean) {
-        chatDao.insertMessage(
+    override suspend fun saveMessage(sessionId: Long, text: String, isUser: Boolean): Long {
+        return chatDao.insertMessage(
             ChatMessageEntity(
                 sessionId = sessionId,
                 text = text,
                 isUser = isUser
             )
         )
+    }
+
+    override suspend fun updateMessage(messageId: Long, newText: String) {
+        chatDao.updateMessageText(messageId, newText)
     }
 
     override suspend fun deleteSession(sessionId: Long) {

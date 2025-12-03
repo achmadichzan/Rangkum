@@ -10,7 +10,8 @@ interface ChatRepository {
     suspend fun createSession(title: String): Long
     suspend fun createSessionWithId(session: Session): Long
     suspend fun getMessagesBySessionId(sessionId: Long): List<Message>
-    suspend fun saveMessage(sessionId: Long, text: String, isUser: Boolean)
+    suspend fun saveMessage(sessionId: Long, text: String, isUser: Boolean): Long
+    suspend fun updateMessage(messageId: Long, newText: String)
     suspend fun deleteSession(sessionId: Long)
     suspend fun renameSession(sessionId: Long, newTitle: String)
     fun searchSessions(query: String): Flow<List<Session>>

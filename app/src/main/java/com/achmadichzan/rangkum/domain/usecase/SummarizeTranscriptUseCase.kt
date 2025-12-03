@@ -10,9 +10,7 @@ class SummarizeTranscriptUseCase(
     private val aiRepository: AiRepository,
     private val chatRepository: ChatRepository
 ) {
-    suspend operator fun invoke(sessionId: Long, fullPrompt: String): Flow<String> {
-
-        chatRepository.saveMessage(sessionId, fullPrompt, isUser = true)
+    operator fun invoke(sessionId: Long, fullPrompt: String): Flow<String> {
 
         val stringBuilder = StringBuilder()
 

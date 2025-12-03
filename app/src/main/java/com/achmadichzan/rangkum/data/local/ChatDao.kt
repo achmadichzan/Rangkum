@@ -15,7 +15,9 @@ interface ChatDao {
     @Query("SELECT * FROM chat_sessions WHERE id = :id")
     suspend fun getSessionById(id: Long): ChatSessionEntity?
     @Insert
-    suspend fun insertMessage(message: ChatMessageEntity)
+    suspend fun insertMessage(message: ChatMessageEntity): Long
+    @Query("UPDATE chat_messages SET text = :newText WHERE id = :messageId")
+    suspend fun updateMessageText(messageId: Long, newText: String)
     @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
     suspend fun getMessagesBySessionId(sessionId: Long): List<ChatMessageEntity>
 

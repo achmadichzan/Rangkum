@@ -19,6 +19,7 @@ import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.RestoreSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -30,7 +31,7 @@ object Injection {
     private val ktorClient: HttpClient by lazy {
         HttpClient(Android) {
             install(ContentNegotiation) {
-                gson() // Menggunakan Gson converter
+                gson()
             }
             install(Logging) {
                 level = LogLevel.BODY
@@ -69,6 +70,10 @@ object Injection {
         return GetHistoryUseCase(
             chatRepository = provideChatRepository(context)
         )
+    }
+
+    fun provideUpdateMessageUseCase(context: Context): UpdateMessageUseCase {
+        return UpdateMessageUseCase(provideChatRepository(context))
     }
 
     fun provideDeleteSessionUseCase(context: Context): DeleteSessionUseCase {
