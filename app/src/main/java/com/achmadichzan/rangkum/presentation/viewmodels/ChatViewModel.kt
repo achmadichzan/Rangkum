@@ -1,4 +1,4 @@
-package com.achmadichzan.rangkum.presentation.viewmodel
+package com.achmadichzan.rangkum.presentation.viewmodels
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf

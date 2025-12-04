@@ -28,8 +28,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.achmadichzan.rangkum.presentation.screen.DetailChatScreen
 import com.achmadichzan.rangkum.presentation.screen.MainScreen
-import com.achmadichzan.rangkum.presentation.viewmodel.ChatViewModel
-import com.achmadichzan.rangkum.presentation.viewmodel.ViewModelFactory
+import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
+import com.achmadichzan.rangkum.presentation.viewmodels.ViewModelFactory
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)

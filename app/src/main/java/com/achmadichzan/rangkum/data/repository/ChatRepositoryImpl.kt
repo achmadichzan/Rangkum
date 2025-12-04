@@ -30,7 +30,8 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         val entity = ChatSessionEntity(
             id = session.id,
             title = session.title,
-            timestamp = session.timestamp
+            timestamp = session.timestamp,
+            isPinned = session.isPinned
         )
         return chatDao.insertSession(entity)
     }
@@ -67,11 +68,23 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         }
     }
 
+    override suspend fun updateSession(session: Session) {
+        val entity = ChatSessionEntity(
+            id = session.id,
+            title = session.title,
+            timestamp = session.timestamp,
+            isPinned = session.isPinned
+        )
+
+        chatDao.updateSession(entity)
+    }
+
     private fun ChatSessionEntity.toDomain(): Session {
         return Session(
             id = this.id,
             title = this.title,
-            timestamp = this.timestamp
+            timestamp = this.timestamp,
+            isPinned = this.isPinned
         )
     }
 
@@ -81,7 +94,7 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
             sessionId = this.sessionId,
             text = this.text,
             isUser = this.isUser,
-            timestamp = this.timestamp
+            timestamp = this.timestamp,
         )
     }
 }

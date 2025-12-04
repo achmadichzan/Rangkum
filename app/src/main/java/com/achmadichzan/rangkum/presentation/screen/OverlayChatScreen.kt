@@ -85,7 +85,7 @@ import androidx.compose.ui.unit.dp
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
-import com.achmadichzan.rangkum.presentation.viewmodel.ChatViewModel
+import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import kotlinx.coroutines.launch
 
 @Composable

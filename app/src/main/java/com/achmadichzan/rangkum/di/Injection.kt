@@ -20,6 +20,7 @@ import com.achmadichzan.rangkum.domain.usecase.RestoreSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateSessionUseCase
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -82,6 +83,10 @@ object Injection {
 
     fun provideRenameSessionUseCase(context: Context): RenameSessionUseCase {
         return RenameSessionUseCase(provideChatRepository(context))
+    }
+
+    fun provideUpdateSessionUseCase(context: Context): UpdateSessionUseCase {
+        return UpdateSessionUseCase(provideChatRepository(context))
     }
 
     fun provideYoutubeRepository(): YoutubeRepository {

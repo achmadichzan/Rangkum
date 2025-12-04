@@ -37,8 +37,8 @@ import com.achmadichzan.rangkum.MainActivity
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.screen.OverlayChatScreen
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
-import com.achmadichzan.rangkum.presentation.viewmodel.ChatViewModel
-import com.achmadichzan.rangkum.presentation.viewmodel.ViewModelFactory
+import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
+import com.achmadichzan.rangkum.presentation.viewmodels.ViewModelFactory
 import kotlinx.coroutines.launch
 
 class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegistryOwner {

@@ -1,4 +1,4 @@
-package com.achmadichzan.rangkum.presentation.viewmodel
+package com.achmadichzan.rangkum.presentation.viewmodels
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -25,6 +25,7 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 deleteSessionUseCase = Injection.provideDeleteSessionUseCase(context),
                 restoreSessionUseCase = Injection.provideRestoreSessionUseCase(context),
                 renameSessionUseCase = Injection.provideRenameSessionUseCase(context),
+                updateSessionUseCase = Injection.provideUpdateSessionUseCase(context),
                 settingsRepository = Injection.provideSettingsRepository(context),
                 getYoutubeTranscriptUseCase = Injection.provideGetYoutubeTranscriptUseCase(),
                 chatRepository = Injection.provideChatRepository(context)

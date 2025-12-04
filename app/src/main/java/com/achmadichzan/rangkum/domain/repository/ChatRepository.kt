@@ -15,4 +15,5 @@ interface ChatRepository {
     suspend fun deleteSession(sessionId: Long)
     suspend fun renameSession(sessionId: Long, newTitle: String)
     fun searchSessions(query: String): Flow<List<Session>>
+    suspend fun updateSession(session: Session)
 }

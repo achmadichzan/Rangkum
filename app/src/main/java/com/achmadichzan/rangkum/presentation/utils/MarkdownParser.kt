@@ -26,18 +26,27 @@ object MarkdownParser {
             val lines = text.split("\n")
             var inCodeBlock = false
 
+            // Hapus baris kosong di AWAL dan AKHIR file saja, jangan di tengah
             val filteredLines = lines.dropWhile { it.isBlank() }.dropLastWhile { it.isBlank() }
 
-            filteredLines.forEach { line ->
+            // Gunakan forEachIndexed agar kita tahu kapan harus menambah \n
+            filteredLines.forEachIndexed { index, line ->
                 val trimmedLine = line.trim()
 
+                // 1. JANGAN SKIP BARIS KOSONG. TAPI RENDER SEBAGAI ENTER.
                 if (!inCodeBlock && trimmedLine.isBlank()) {
-                    return@forEach
+                    if (index < filteredLines.lastIndex) {
+                        append("\n")
+                    }
+                    return@forEachIndexed
                 }
 
+                // 2. LOGIKA CODE BLOCK
                 if (trimmedLine.startsWith("```")) {
                     inCodeBlock = !inCodeBlock
-                    return@forEach
+                    // Jangan append teks ```, tapi pastikan ada enter jika bukan baris terakhir
+                    if (index < filteredLines.lastIndex) append("\n")
+                    return@forEachIndexed
                 }
 
                 if (inCodeBlock) {
@@ -54,6 +63,7 @@ object MarkdownParser {
                     }
                 }
                 else {
+                    // 3. LOGIKA STYLING BIASA
                     if (trimmedLine.startsWith("### ")) {
                         withStyle(style = ParagraphStyle(lineHeight = lineHeight)) {
                             withStyle(style = SpanStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold)) {
@@ -75,7 +85,6 @@ object MarkdownParser {
                             }
                         }
                     }
-
                     else if (trimmedLine.startsWith("* ") || trimmedLine.startsWith("- ")) {
                         withStyle(
                             style = ParagraphStyle(
@@ -89,7 +98,6 @@ object MarkdownParser {
                             parseInlineFormatting(trimmedLine.substring(2), primaryColor, codeBackground)
                         }
                     }
-
                     else if (trimmedLine.matches(Regex("^\\d+\\.\\s.*"))) {
                         val dotIndex = trimmedLine.indexOf(".")
                         val numberPart = trimmedLine.take(dotIndex + 1)
@@ -102,12 +110,17 @@ object MarkdownParser {
                             parseInlineFormatting(contentPart, primaryColor, codeBackground)
                         }
                     }
-
                     else {
                         withStyle(style = ParagraphStyle(lineHeight = lineHeight)) {
                             parseInlineFormatting(line, primaryColor, codeBackground)
                         }
                     }
+                }
+
+                // 4. KUNCI UTAMA: KEMBALIKAN ENTER YANG HILANG KARENA SPLIT
+                // Jika ini bukan baris terakhir, tambahkan enter manual.
+                if (index < filteredLines.lastIndex) {
+                    append("\n")
                 }
             }
         }

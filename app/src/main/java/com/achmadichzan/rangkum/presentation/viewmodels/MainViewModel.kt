@@ -1,4 +1,4 @@
-package com.achmadichzan.rangkum.presentation.viewmodel
+package com.achmadichzan.rangkum.presentation.viewmodels
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,6 +14,7 @@ import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.RestoreSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateSessionUseCase
 import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -31,6 +33,7 @@ class MainViewModel(
     private val getHistoryUseCase: GetHistoryUseCase,
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val renameSessionUseCase: RenameSessionUseCase,
+    private val updateSessionUseCase: UpdateSessionUseCase,
     private val restoreSessionUseCase: RestoreSessionUseCase,
     private val settingsRepository: SettingsRepository,
     private val getYoutubeTranscriptUseCase: GetYoutubeTranscriptUseCase,
@@ -43,6 +46,12 @@ class MainViewModel(
         .debounce(300)
         .flatMapLatest { query ->
             getHistoryUseCase.getSessions(query)
+        }
+        .map { list ->
+            list.sortedWith(
+                compareByDescending<Session> { it.isPinned }
+                    .thenByDescending { it.timestamp }
+            )
         }
         .stateIn(
             scope = viewModelScope,
@@ -131,6 +140,19 @@ class MainViewModel(
                 deletedSession = null
                 deletedMessages = null
             }
+        }
+    }
+
+    fun togglePin(session: Session) {
+        viewModelScope.launch {
+            val currentPinnedCount = allSessions.value.count { it.isPinned }
+
+            if (!session.isPinned && currentPinnedCount >= 3) {
+                return@launch
+            }
+
+            val updatedSession = session.copy(isPinned = !session.isPinned)
+            updateSessionUseCase(updatedSession)
         }
     }
 

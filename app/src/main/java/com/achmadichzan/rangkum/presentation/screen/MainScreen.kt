@@ -80,8 +80,8 @@ import com.achmadichzan.rangkum.presentation.components.HistoryItem
 import com.achmadichzan.rangkum.presentation.components.RenameDialog
 import com.achmadichzan.rangkum.presentation.components.SearchBar
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
-import com.achmadichzan.rangkum.presentation.viewmodel.MainViewModel
-import com.achmadichzan.rangkum.presentation.viewmodel.ViewModelFactory
+import com.achmadichzan.rangkum.presentation.viewmodels.MainViewModel
+import com.achmadichzan.rangkum.presentation.viewmodels.ViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +101,8 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     var isFabVisible by remember { mutableStateOf(true) }
+    val pinnedCount = remember(sessions) { sessions.count { it.isPinned } }
+    val isPinLimitReached = pinnedCount >= 3
 
     LaunchedEffect(true) {
         viewModel.uiEvent.collect { event ->
@@ -241,7 +243,7 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 8.dp)
                 ) {
                     stickyHeader {
                         Surface(
@@ -318,10 +320,14 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
                             ) {
                                 HistoryItem(
                                     session = session,
+                                    isPinLimitReached = isPinLimitReached,
                                     onClick = { onStartSession(session.id) },
-                                    onEditClick = {
+                                    onRenameClick = {
                                         sessionToRename = session
                                         showRenameDialog = true
+                                    },
+                                    onPinClick = {
+                                        viewModel.togglePin(session)
                                     }
                                 )
                             }
