@@ -20,19 +20,10 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# --- VOSK RULES (PENTING) ---
-# Jaga agar kelas Vosk tidak diubah namanya karena dipanggil oleh Native C++
--keep class org.vosk.** { *; }
--keep interface org.vosk.** { *; }
+# Abaikan kelas Desktop (AWT),
+-dontwarn java.awt.**
+-dontwarn javax.swing.**
+
+# Keep class JNA agar tidak di-obfuscate
 -keep class com.sun.jna.** { *; }
-
-# --- FIREBASE & GSON RULES (Jaga-jaga) ---
--keep class com.google.firebase.** { *; }
--keep class com.google.gson.** { *; }
-
-# --- COROUTINES ---
--keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
--keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
--keepclassmembers class kotlinx.coroutines.android.AndroidExceptionPreHandler {
-    <init>();
-}
+-keepclassmembers class * extends com.sun.jna.** { *; }

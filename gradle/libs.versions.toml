@@ -6,15 +6,15 @@ ksp = "2.2.21-2.0.4"
 coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.10.0"
 lifecycleViewmodelKtx = "2.10.0"
-activityCompose = "1.12.0"
-composeBom = "2025.11.01"
+activityCompose = "1.12.1"
+composeBom = "2025.12.00"
 
 firebaseBom = "34.6.0"
 materialIconsExtended = "1.7.8"
 lifecycleService = "2.10.0"
 roomRuntime = "2.8.4"
 savedstateKtx = "1.4.0"
-voskAndroid = "0.3.70"
+voskAndroid = "0.3.75"
 datastorePreferences = "1.2.0"
 coreSplashscreen = "1.2.0"
 material = "1.13.0"
@@ -101,4 +101,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize" }
