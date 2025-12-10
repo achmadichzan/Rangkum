@@ -84,6 +84,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -520,12 +521,23 @@ fun OverlayChatScreen(
                                             ) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     SmallFloatingActionButton(
-                                                        onClick = { /* ... */ },
+                                                        onClick = {
+                                                            val currentText = viewModel.liveTranscript
+                                                            tempEditText = TextFieldValue(
+                                                                text = currentText,
+                                                                selection = TextRange(currentText.length)
+                                                            )
+                                                            isEditing = true
+                                                        },
                                                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                                                         modifier = Modifier.size(48.dp)
                                                     ) {
-                                                        Icon(Icons.Default.Edit, "Edit", Modifier.size(20.dp))
+                                                        Icon(
+                                                            Icons.Default.Edit,
+                                                            "Edit",
+                                                            Modifier.size(20.dp)
+                                                        )
                                                     }
 
                                                     SmallFloatingActionButton(
@@ -534,7 +546,11 @@ fun OverlayChatScreen(
                                                         contentColor = MaterialTheme.colorScheme.onSecondary,
                                                         modifier = Modifier.size(48.dp)
                                                     ) {
-                                                        Icon(Icons.Default.Refresh, "Reset", Modifier.size(20.dp))
+                                                        Icon(
+                                                            Icons.Default.Refresh,
+                                                            "Reset",
+                                                            Modifier.size(20.dp)
+                                                        )
                                                     }
 
                                                     SmallFloatingActionButton(
@@ -543,7 +559,11 @@ fun OverlayChatScreen(
                                                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
                                                         modifier = Modifier.size(48.dp)
                                                     ) {
-                                                        Icon(Icons.Default.Delete, "Batal", Modifier.size(20.dp))
+                                                        Icon(
+                                                            Icons.Default.Delete,
+                                                            "Batal",
+                                                            Modifier.size(20.dp)
+                                                        )
                                                     }
 
                                                     SmallFloatingActionButton(
