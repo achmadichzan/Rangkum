@@ -478,7 +478,7 @@ fun OverlayChatScreen(
 
                                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                                     val currentMaxWidth = maxWidth
-                                    val showSmallTools = currentMaxWidth > 300.dp
+                                    val showSmallTools = currentMaxWidth > 280.dp
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),

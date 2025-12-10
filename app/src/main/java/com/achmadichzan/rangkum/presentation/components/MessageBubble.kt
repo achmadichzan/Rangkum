@@ -1,5 +1,6 @@
 package com.achmadichzan.rangkum.presentation.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,8 +38,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.UiMessage
-import com.achmadichzan.rangkum.presentation.utils.MarkdownParser
+import dev.jeziellago.compose.markdowntext.MarkdownText
+import kotlinx.coroutines.delay
 
 @Composable
 fun MessageBubble(
@@ -59,6 +62,28 @@ fun MessageBubble(
 
     var editedText by remember { mutableStateOf(TextFieldValue(message.text)) }
     val focusRequester = remember { FocusRequester() }
+    var displayedText by remember(message.id) {
+        mutableStateOf(if (message.isStreaming) "" else message.text)
+    }
+
+    LaunchedEffect(message.text) {
+        if (message.isStreaming) {
+            val currentLength = displayedText.length
+            val targetLength = message.text.length
+
+            if (targetLength > currentLength) {
+                val deltaText = message.text.substring(currentLength)
+                for (char in deltaText) {
+                    displayedText += char
+                    delay(100)
+                }
+            }
+        } else {
+            if (displayedText != message.text) {
+                displayedText = message.text
+            }
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -121,15 +146,17 @@ fun MessageBubble(
                     }
                 }
                 else {
-                    val styledText = remember(message.text) {
-                        MarkdownParser.parse(message.text, textColor, bubbleColor)
-                    }
-
                     SelectionContainer {
-                        Text(
-                            text = styledText,
-                            color = textColor,
-                            style = MaterialTheme.typography.bodyMedium
+                        MarkdownText(
+                            markdown = displayedText,
+                            modifier = Modifier.fillMaxWidth()
+                                .animateContentSize(),
+                            isTextSelectable = true,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = textColor,
+                                fontSize = 14.sp
+                            ),
+                            linkColor = textColor
                         )
                     }
 
@@ -143,10 +170,18 @@ fun MessageBubble(
                                 onClick = { onRetry(message.text) },
                                 modifier = Modifier.size(24.dp)
                             ) {
-                                Icon(Icons.Default.Refresh, "Coba Lagi", tint = MaterialTheme.colorScheme.error)
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    "Coba Lagi",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Gagal. Coba lagi?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                            Text(
+                                "Gagal. Coba lagi?",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
 
                         if (message.isUser) {
@@ -161,7 +196,11 @@ fun MessageBubble(
                                 },
                                 modifier = Modifier.size(20.dp)
                             ) {
-                                Icon(Icons.Default.Edit, "Edit Prompt", tint = textColor.copy(alpha = 0.6f))
+                                Icon(
+                                    Icons.Default.Edit,
+                                    "Edit Prompt",
+                                    tint = textColor.copy(alpha = 0.6f)
+                                )
                             }
                         }
                     }

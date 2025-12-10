@@ -145,7 +145,11 @@ fun DetailChatScreen(
                         end = 16.dp
                     )
                 ) {
-                    items(viewModel.messages, key = { it.id }) { message ->
+                    items(
+                        viewModel.messages,
+                        key = { it.id },
+                        contentType = { if (it.isUser) 1 else 2 }
+                    ) { message ->
                         MessageBubble(
                             message = message,
                             onRetry = {
