@@ -24,7 +24,10 @@ import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.StorageService
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
+@OptIn(ExperimentalAtomicApi::class)
 class AudioTranscriber(
     private val context: Context,
     private val scope: CoroutineScope,
@@ -47,9 +50,11 @@ class AudioTranscriber(
     private var isIntentionalStop = false
     private var isSilentStop = false
     private val transcriberMutex = Mutex()
+    private val isPaused = AtomicBoolean(false)
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun start(resultCode: Int, resultData: Intent) {
+        isPaused.store(false)
         reset()
         isSilentStop = false
         isIntentionalStop = false
@@ -140,6 +145,10 @@ class AudioTranscriber(
 
                     if (read < 0) { break }
                     if (read > 0) {
+                        if (isPaused.load()) {
+                            continue
+                        }
+
                         transcriberMutex.withLock {
                             if (voskRecognizer!!.acceptWaveForm(buffer, read)) {
                                 val text = parseVoskResult(voskRecognizer!!.result)
@@ -202,9 +211,18 @@ class AudioTranscriber(
         voskRecognizer?.reset()
     }
 
+    fun pause() {
+        isPaused.store(true)
+    }
+
+    fun resume() {
+        isPaused.store(false)
+    }
+
     fun stop() {
         isIntentionalStop = true
         isRecording = false
+        isPaused.store(false)
 
         try {
             audioRecord?.stop()

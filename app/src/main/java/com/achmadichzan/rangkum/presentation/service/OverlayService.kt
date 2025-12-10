@@ -59,6 +59,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
     private var isAudioPreparing by mutableStateOf(false)
     private var isRecording by mutableStateOf(false)
+    private var isPaused by mutableStateOf(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -115,6 +116,8 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
+        windowManagerHelper.updateScreenDimensions()
+
         if (::composeView.isInitialized) {
             windowManagerHelper.adjustToScreenSize(composeView)
         }
@@ -149,10 +152,21 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                         OverlayChatScreen(
                             viewModel = chatViewModel,
                             isRecording = isRecording,
+                            isPaused = isPaused,
                             isPreparing = isAudioPreparing,
                             isCollapsed = windowManagerHelper.isCollapsed,
                             onStartRecording = { restartRecordingProcess() },
                             onStopRecording = { audioTranscriber.stop() },
+                            onTogglePause = {
+                                if (isPaused) {
+                                    audioTranscriber.resume()
+                                    isPaused = false
+                                } else {
+                                    audioTranscriber.pause()
+                                    isPaused = true
+                                }
+                                startForegroundServiceNotification()
+                            },
                             onCancelRecording = { audioTranscriber.stop() },
                             onCloseApp = { performGracefulShutdown() },
                             onWindowDrag = { dx, dy ->
@@ -197,9 +211,14 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             stopIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val statusText = when {
+            isPaused -> "Jeda (Paused)"
+            isRecording -> "Sedang merekam..."
+            else -> "Siap (Standby)"
+        }
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Rangkum AI")
-            .setContentText(if (isRecording) "Sedang merekam..." else "Siap (Standby)")
+            .setContentText(statusText)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
@@ -260,6 +279,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
     private fun stopRecordingState() {
         isRecording = false
+        isPaused = false
         startForegroundServiceNotification()
     }
 

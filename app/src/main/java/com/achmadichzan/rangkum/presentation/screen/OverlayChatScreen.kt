@@ -2,6 +2,10 @@ package com.achmadichzan.rangkum.presentation.screen
 
 import android.content.ClipData
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -9,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,6 +46,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material.icons.filled.NorthWest
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Visibility
@@ -77,25 +84,28 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun OverlayChatScreen(
     viewModel: ChatViewModel,
     isPreparing: Boolean,
     isRecording: Boolean,
+    isPaused: Boolean,
     isCollapsed: Boolean,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
+    onTogglePause: () -> Unit,
     onCancelRecording: () -> Unit,
     onCloseApp: () -> Unit,
     onWindowDrag: (Float, Float) -> Unit,
@@ -127,6 +137,8 @@ fun OverlayChatScreen(
 
     var currentAlpha by remember { mutableFloatStateOf(1f) }
     var showOpacitySlider by remember { mutableStateOf(false) }
+    var accumulatedDragX by remember { mutableFloatStateOf(0f) }
+    var accumulatedDragY by remember { mutableFloatStateOf(0f) }
 
     if (isCollapsed) {
         Box(
@@ -323,7 +335,7 @@ fun OverlayChatScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     when {
                         isPreparing -> {
@@ -362,191 +374,216 @@ fun OverlayChatScreen(
                             val scrollState = rememberScrollState()
 
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                Row(
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
                                     modifier = Modifier.fillMaxWidth()
-                                        .padding(bottom = 12.dp),
-                                    verticalAlignment = Alignment.Top
+                                        .heightIn(min = 100.dp, max = 200.dp)
+                                        .background(Color.Transparent)
                                 ) {
-                                    Card(
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                        ),
-                                        shape = RoundedCornerShape(12.dp),
+                                    Column(
                                         modifier = Modifier
-                                            .weight(1f)
-                                            .heightIn(min = 80.dp, max = 150.dp)
+                                            .padding(12.dp)
+                                            .verticalScroll(scrollState)
                                     ) {
-                                        Column(
-                                            modifier = Modifier
-                                                .padding(12.dp)
-                                                .verticalScroll(scrollState)
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Default.GraphicEq,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    text = if (isEditing) "Mode Edit:" else "Live Transkrip:",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.height(4.dp))
-
-                                            if (isEditing) {
-                                                BasicTextField(
-                                                    value = tempEditText,
-                                                    onValueChange = { tempEditText = it },
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(0.dp)
-                                                        .bringIntoViewRequester(bringIntoViewRequester),
-                                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                    ),
-                                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                                    decorationBox = { innerTextField ->
-                                                        if (tempEditText.text.isEmpty()) {
-                                                            Text(
-                                                                text = "Edit transkrip...",
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
-                                                            )
-                                                        }
-                                                        innerTextField()
-                                                    },
-                                                    onTextLayout = { layoutResult ->
-                                                        val cursorRect = layoutResult.getCursorRect(tempEditText.selection.start)
-
-                                                        scope.launch {
-                                                            bringIntoViewRequester.bringIntoView(cursorRect)
-                                                        }
-                                                    }
-                                                )
-                                            } else {
-                                                LaunchedEffect(viewModel.liveTranscript) {
-                                                    if (!isEditing) {
-                                                        scrollState.animateScrollTo(scrollState.maxValue)
-                                                    }
-                                                }
-
-                                                Column(
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    if (viewModel.liveTranscript.isNotBlank()) {
-                                                        Text(
-                                                            text = viewModel.liveTranscript,
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            fontStyle = FontStyle.Italic,
-                                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                        )
-                                                    } else {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            modifier = Modifier.padding(top = 4.dp)
-                                                        ) {
-                                                            LinearProgressIndicator(
-                                                                modifier = Modifier.width(60.dp)
-                                                                    .height(2.dp),
-                                                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                                trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(
-                                                                    alpha = 0.3f
-                                                                )
-                                                            )
-                                                            Spacer(modifier = Modifier.width(8.dp))
-                                                            Text(
-                                                                "Mendengarkan...",
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
-                                                                    alpha = 0.7f
-                                                                )
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.GraphicEq,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = if (isEditing) "Mode Edit:" else "Live Transkrip:",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
                                         }
-                                    }
+                                        Spacer(modifier = Modifier.height(4.dp))
 
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         if (isEditing) {
-                                            SmallFloatingActionButton(
-                                                onClick = {
-                                                    onUpdateTranscript(tempEditText.text); isEditing =
-                                                    false
+                                            BasicTextField(
+                                                value = tempEditText,
+                                                onValueChange = { tempEditText = it },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .bringIntoViewRequester(bringIntoViewRequester),
+                                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                ),
+                                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                                decorationBox = { innerTextField ->
+                                                    if (tempEditText.text.isEmpty()) {
+                                                        Text(
+                                                            text = "Edit transkrip...",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.5f)
+                                                        )
+                                                    }
+                                                    innerTextField()
                                                 },
-                                                containerColor = MaterialTheme.colorScheme.primary,
-                                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.size(40.dp)
-                                            ) { Icon(Icons.Default.Check, "Simpan") }
+                                                onTextLayout = { layoutResult ->
+                                                    val cursorRect = layoutResult.getCursorRect(tempEditText.selection.start)
+                                                    scope.launch { bringIntoViewRequester.bringIntoView(cursorRect) }
+                                                }
+                                            )
                                         } else {
-                                            SmallFloatingActionButton(
-                                                onClick = {
-                                                    val currentText = viewModel.liveTranscript
-                                                    tempEditText = TextFieldValue(
-                                                        text = currentText,
-                                                        selection = TextRange(currentText.length)
+                                            LaunchedEffect(viewModel.liveTranscript) {
+                                                if (!isEditing) {
+                                                    scrollState.animateScrollTo(scrollState.maxValue)
+                                                }
+                                            }
+
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                if (viewModel.liveTranscript.isNotBlank()) {
+                                                    Text(
+                                                        text = viewModel.liveTranscript,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontStyle = FontStyle.Italic,
+                                                        color = MaterialTheme.colorScheme.onSecondaryContainer
                                                     )
-                                                    isEditing = true
-                                                },
-                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                modifier = Modifier.size(40.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Edit,
-                                                    "Edit",
-                                                    Modifier.size(20.dp)
-                                                )
-                                            }
-
-                                            SmallFloatingActionButton(
-                                                onClick = onResetTranscript,
-                                                containerColor = MaterialTheme.colorScheme.secondary,
-                                                contentColor = MaterialTheme.colorScheme.onSecondary,
-                                                modifier = Modifier.size(40.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Refresh,
-                                                    "Reset",
-                                                    Modifier.size(20.dp)
-                                                )
-                                            }
-
-                                            SmallFloatingActionButton(
-                                                onClick = onCancelRecording,
-                                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                                modifier = Modifier.size(40.dp)
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    "Batal",
-                                                    Modifier.size(20.dp)
-                                                )
+                                                } else {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(top = 4.dp)
+                                                    ) {
+                                                        LinearProgressIndicator(
+                                                            modifier = Modifier.width(60.dp)
+                                                                .height(2.dp),
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                            trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                                                alpha = 0.3f
+                                                            )
+                                                        )
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text(
+                                                            "Mendengarkan...",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                                                alpha = 0.7f
+                                                            )
+                                                        )
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                 }
 
-                                Button(
-                                    onClick = onStopRecording,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error,
-                                        contentColor = MaterialTheme.colorScheme.onError
-                                    ),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(Icons.Default.Stop, null)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Stop & Rangkum")
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                                    val currentMaxWidth = maxWidth
+                                    val showSmallTools = currentMaxWidth > 300.dp
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (isEditing) {
+                                            SmallFloatingActionButton(
+                                                onClick = { isEditing = false },
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.size(48.dp)
+                                            ) {
+                                                Icon(Icons.Default.Close, "Batal Edit")
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    onUpdateTranscript(tempEditText.text)
+                                                    isEditing = false
+                                                },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.primary,
+                                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                                ),
+                                                modifier = Modifier.weight(1f)
+                                                    .height(48.dp),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Icon(Icons.Default.Check, null)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Simpan")
+                                            }
+
+                                        } else {
+                                            AnimatedVisibility(
+                                                visible = showSmallTools,
+                                                enter = expandHorizontally() + fadeIn(),
+                                                exit = shrinkHorizontally() + fadeOut()
+                                            ) {
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    SmallFloatingActionButton(
+                                                        onClick = { /* ... */ },
+                                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                        modifier = Modifier.size(48.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Edit, "Edit", Modifier.size(20.dp))
+                                                    }
+
+                                                    SmallFloatingActionButton(
+                                                        onClick = onResetTranscript,
+                                                        containerColor = MaterialTheme.colorScheme.secondary,
+                                                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                                                        modifier = Modifier.size(48.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Refresh, "Reset", Modifier.size(20.dp))
+                                                    }
+
+                                                    SmallFloatingActionButton(
+                                                        onClick = onCancelRecording,
+                                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                                        modifier = Modifier.size(48.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Delete, "Batal", Modifier.size(20.dp))
+                                                    }
+
+                                                    SmallFloatingActionButton(
+                                                        onClick = onTogglePause,
+                                                        containerColor = MaterialTheme.colorScheme.tertiary,
+                                                        contentColor = MaterialTheme.colorScheme.onTertiary,
+                                                        modifier = Modifier.size(48.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                                            contentDescription = if (isPaused) "Lanjutkan" else "Jeda",
+                                                            modifier = Modifier.size(24.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Button(
+                                                onClick = onStopRecording,
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error,
+                                                    contentColor = MaterialTheme.colorScheme.onError
+                                                ),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(48.dp),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Icon(Icons.Default.Stop, null)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                if (currentMaxWidth > 100.dp) {
+                                                    Text(
+                                                        text = "Stop",
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -676,13 +713,28 @@ fun OverlayChatScreen(
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
                     .size(24.dp)
+                    .rotate(180f)
                     .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (accumulatedDragX != 0f || accumulatedDragY != 0f) {
+                                    onWindowResize(accumulatedDragX, accumulatedDragY)
+                                    accumulatedDragX = 0f
+                                    accumulatedDragY = 0f
+                                }
+                            }
+                        ) { change, dragAmount ->
                             change.consume()
-                            onWindowResize(dragAmount.x, dragAmount.y)
+                            accumulatedDragX -= dragAmount.x
+                            accumulatedDragY -= dragAmount.y
+
+                            if (abs(accumulatedDragX) >= 15f || abs(accumulatedDragY) >= 15f) {
+                                onWindowResize(accumulatedDragX, accumulatedDragY)
+                                accumulatedDragX = 0f
+                                accumulatedDragY = 0f
+                            }
                         }
                     }
-                    .rotate(180f)
             )
         }
     }

@@ -18,8 +18,15 @@ class OverlayWindowManager(private val context: Context) {
 
     private var lastWidth = 0
     private var lastHeight = 0
+    private var screenWidth = 0
+    private var screenHeight = 0
+    private var density = 0f
     var isCollapsed by mutableStateOf(false)
         private set
+
+    init {
+        updateScreenDimensions()
+    }
 
     fun createParams(): WindowManager.LayoutParams {
         val metrics = context.resources.displayMetrics
@@ -79,21 +86,24 @@ class OverlayWindowManager(private val context: Context) {
         updateViewLayout(view)
     }
 
+    fun updateScreenDimensions() {
+        val metrics = context.resources.displayMetrics
+        screenWidth = metrics.widthPixels
+        screenHeight = metrics.heightPixels
+        density = metrics.density
+    }
+
     fun resize(view: View, deltaWidth: Float, deltaHeight: Float) {
         if (isCollapsed) return
 
-        val metrics = context.resources.displayMetrics
-        val screenWidth = metrics.widthPixels
-        val screenHeight = metrics.heightPixels
-
-        val minWidth = (200 * metrics.density).toInt()
-        val minHeight = (150 * metrics.density).toInt()
+        val minWidth = (200 * density).toInt()
+        val minHeight = (150 * density).toInt()
 
         val targetWidth = params.width + deltaWidth.toInt()
         val targetHeight = params.height + deltaHeight.toInt()
 
-        val effectiveX = if (params.x < 0) 0 else params.x
-        val effectiveY = if (params.y < 0) 0 else params.y
+        val effectiveX = params.x.coerceAtLeast(0)
+        val effectiveY = params.y.coerceAtLeast(0)
 
         val maxWidthAllowed = screenWidth - effectiveX
         val maxHeightAllowed = screenHeight - effectiveY
