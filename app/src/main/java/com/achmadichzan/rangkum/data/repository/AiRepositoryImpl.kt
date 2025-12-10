@@ -1,39 +1,36 @@
 package com.achmadichzan.rangkum.data.repository
 
+import com.achmadichzan.rangkum.data.remote.GeminiFactory
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.repository.AiRepository
-import com.google.firebase.ai.GenerativeModel
-import com.google.firebase.ai.type.Content
 import com.google.firebase.ai.type.content
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlin.collections.map
+import kotlinx.coroutines.flow.flow
 
-class AiRepositoryImpl(
-    private val generativeModel: GenerativeModel
-) : AiRepository {
-
-    override suspend fun sendMessage(prompt: String, history: List<Message>): String {
-        val geminiHistory = history.map { it.toGeminiContent() }
-
-        val chat = generativeModel.startChat(history = geminiHistory)
-
-        val response = chat.sendMessage(prompt)
-
-        return response.text ?: throw Exception("Respon AI kosong")
-    }
-
-    override fun generateContentStream(prompt: String): Flow<String> {
-        return generativeModel.generateContentStream(prompt)
-            .map { chunk ->
-                chunk.text ?: ""
+class AiRepositoryImpl : AiRepository {
+    override fun generateContentStream(
+        prompt: String,
+        history: List<Message>,
+        modelName: String
+    ): Flow<String> {
+        val generativeModel = GeminiFactory.createModel(modelName)
+        val geminiHistory = history
+            .filter { it.text.isNotBlank() && !it.isError }
+            .map { msg ->
+                content(role = if (msg.isUser) "user" else "model") {
+                    text(msg.text)
+                }
             }
-    }
 
-    private fun Message.toGeminiContent(): Content {
-        val roleStr = if (this.isUser) "user" else "model"
-        return content(role = roleStr) {
-            text(this@toGeminiContent.text)
+        return flow {
+            val chat = generativeModel.startChat(
+                history = geminiHistory
+            )
+            val response = chat.sendMessageStream(prompt)
+
+            response.collect {
+                emit(it.text ?: "")
+            }
         }
     }
 }

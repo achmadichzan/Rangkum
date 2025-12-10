@@ -1,6 +1,8 @@
 package com.achmadichzan.rangkum.presentation.components
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,13 +38,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.UiMessage
-import dev.jeziellago.compose.markdowntext.MarkdownText
+import com.achmadichzan.rangkum.presentation.utils.MarkdownParser
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.receiveAsFlow
 
 @Composable
 fun MessageBubble(
@@ -62,31 +68,56 @@ fun MessageBubble(
 
     var editedText by remember { mutableStateOf(TextFieldValue(message.text)) }
     val focusRequester = remember { FocusRequester() }
+
     var displayedText by remember(message.id) {
         mutableStateOf(if (message.isStreaming) "" else message.text)
+    }
+    val wordQueue = remember { Channel<String>(Channel.UNLIMITED) }
+    var lastProcessedIndex by remember(message.id) {
+        mutableIntStateOf(if (message.isStreaming) 0 else message.text.length)
     }
 
     LaunchedEffect(message.text) {
         if (message.isStreaming) {
-            val currentLength = displayedText.length
-            val targetLength = message.text.length
+            val fullText = message.text
 
-            if (targetLength > currentLength) {
-                val deltaText = message.text.substring(currentLength)
-                for (char in deltaText) {
-                    displayedText += char
-                    delay(100)
+            if (fullText.length < lastProcessedIndex) {
+                displayedText = ""
+                lastProcessedIndex = 0
+            }
+
+            if (fullText.length > lastProcessedIndex) {
+                val newChunk = fullText.substring(lastProcessedIndex)
+                val words = newChunk.split(Regex("(?<=\\s)"))
+
+                words.forEach { word ->
+                    wordQueue.send(word)
                 }
+                lastProcessedIndex = fullText.length
             }
         } else {
             if (displayedText != message.text) {
                 displayedText = message.text
+                lastProcessedIndex = message.text.length
             }
         }
     }
 
+    LaunchedEffect(message.id) {
+        wordQueue.receiveAsFlow().collect { word ->
+            displayedText += word
+            delay(20)
+        }
+    }
+
+    val alphaAnim by animateFloatAsState(
+        targetValue = if (displayedText.isNotEmpty()) 1f else 0f,
+        animationSpec = tween(500)
+    )
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth()
+            .graphicsLayer { alpha = alphaAnim },
         horizontalAlignment = alignment
     ) {
         Surface(
@@ -146,17 +177,21 @@ fun MessageBubble(
                     }
                 }
                 else {
+                    val styledText = remember(displayedText, textColor) {
+                        MarkdownParser.parse(
+                            text = displayedText,
+                            primaryColor = textColor,
+                            onBackground = textColor
+                        )
+                    }
+
                     SelectionContainer {
-                        MarkdownText(
-                            markdown = displayedText,
-                            modifier = Modifier.fillMaxWidth()
-                                .animateContentSize(),
-                            isTextSelectable = true,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = textColor,
-                                fontSize = 14.sp
-                            ),
-                            linkColor = textColor
+                        Text(
+                            text = styledText,
+                            color = textColor,
+                            style = MaterialTheme.typography.bodyMedium,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.animateContentSize()
                         )
                     }
 

@@ -29,4 +29,6 @@ interface ChatDao {
     fun searchSessions(query: String): Flow<List<ChatSessionEntity>>
     @Update
     suspend fun updateSession(session: ChatSessionEntity)
+    @Query("DELETE FROM chat_messages WHERE id = :messageId")
+    suspend fun deleteMessage(messageId: Long)
 }

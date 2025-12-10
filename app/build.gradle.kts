@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.ui.text)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.ui.graphics)
 
@@ -94,8 +95,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.bundles.material.adaptive)
-
-    implementation(libs.jeziellago.compose.markdown)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

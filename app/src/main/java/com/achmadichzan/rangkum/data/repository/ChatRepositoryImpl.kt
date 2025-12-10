@@ -79,6 +79,10 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
         chatDao.updateSession(entity)
     }
 
+    override suspend fun deleteMessage(messageId: Long) {
+        chatDao.deleteMessage(messageId)
+    }
+
     private fun ChatSessionEntity.toDomain(): Session {
         return Session(
             id = this.id,

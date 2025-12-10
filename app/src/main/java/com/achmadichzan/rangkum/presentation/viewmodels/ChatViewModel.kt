@@ -8,12 +8,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.model.UiMessage
-import com.achmadichzan.rangkum.domain.repository.ChatRepository
-import com.achmadichzan.rangkum.domain.repository.SettingsRepository
+import com.achmadichzan.rangkum.domain.usecase.DeleteMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
-import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
+import com.achmadichzan.rangkum.domain.usecase.SaveMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateSettingsUseCase
 import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,13 +23,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class ChatViewModel(
-    private val sendMessageUseCase: SendMessageUseCase,
     private val summarizeUseCase: SummarizeTranscriptUseCase,
     private val getHistoryUseCase: GetHistoryUseCase,
     private val updateMessageUseCase: UpdateMessageUseCase,
-    private val chatRepository: ChatRepository,
-    settingsRepository: SettingsRepository
+    private val deleteMessageUseCase: DeleteMessageUseCase,
+    private val saveMessageUseCase: SaveMessageUseCase,
+    getSettingsUseCase: GetSettingsUseCase,
+    private val updateSettingsUseCase: UpdateSettingsUseCase,
 ) : ViewModel() {
+    val availableModels = listOf(
+        "gemini-2.5-flash-lite" to "Flash Lite (Cepat)",
+        "gemini-2.5-flash" to "Flash 2.5 (Standar)",
+        "gemini-2.5-pro" to "Pro 2.5 (Pintar)"
+    )
+    val currentModel = getSettingsUseCase.selectedModel
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = "gemini-2.5-flash-lite"
+        )
     val messages = mutableStateListOf<UiMessage>()
     var userInput by mutableStateOf("")
         private set
@@ -36,7 +49,7 @@ class ChatViewModel(
         private set
     var liveTranscript by mutableStateOf("")
         private set
-    val isDarkMode = settingsRepository.isDarkMode
+    val isDarkMode = getSettingsUseCase.isDarkMode
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -95,16 +108,21 @@ class ChatViewModel(
 
         messages.add(UiMessage(initialText = textToSend, isUser = true))
         userInput = ""
-        isLoading = true
 
         viewModelScope.launch {
             try {
-                if (currentSessionId == null) startNewSession()
+                if (currentSessionId == null) {
+                    startNewSession()
+                }
                 val sessionId = currentSessionId!!
+                val msgId = saveMessageUseCase(sessionId, textToSend, isUser = true)
 
-                val aiResponseText = sendMessageUseCase(sessionId, textToSend)
+                val lastMsgIndex = messages.indexOfLast { it.isUser }
+                if (lastMsgIndex != -1) {
+                    messages[lastMsgIndex] = messages[lastMsgIndex].copy(id = msgId.toString())
+                }
 
-                messages.add(UiMessage(initialText = aiResponseText, isUser = false))
+                sendMessageCore(textToSend)
 
             } catch (e: Exception) {
                 messages.add(
@@ -114,8 +132,6 @@ class ChatViewModel(
                         isError = true
                     )
                 )
-            } finally {
-                isLoading = false
             }
         }
     }
@@ -131,7 +147,7 @@ class ChatViewModel(
             }
             val sessionId = currentSessionId!!
 
-            val msgId = chatRepository.saveMessage(sessionId, fullPrompt, isUser = true)
+            val msgId = saveMessageUseCase(sessionId, fullPrompt, isUser = true)
 
             messages.add(
                 UiMessage(
@@ -141,7 +157,7 @@ class ChatViewModel(
                 )
             )
 
-            sendMessageCore(fullPrompt, isRetry = false)
+            sendMessageCore(fullPrompt)
         }
     }
 
@@ -158,48 +174,75 @@ class ChatViewModel(
                 }
             }
 
-            val hasAiBubble = messages.any { !it.isUser }
-            sendMessageCore(newPrompt, isRetry = hasAiBubble)
+            sendMessageCore(newPrompt)
         }
     }
 
-    private suspend fun sendMessageCore(promptText: String, isRetry: Boolean) {
+    fun onModelChange(newModel: String) {
+        viewModelScope.launch {
+            updateSettingsUseCase.setModel(newModel)
+        }
+    }
+
+    private suspend fun sendMessageCore(promptText: String) {
         isLoading = true
 
         try {
             val sessionId = currentSessionId!!
             val targetAiMessage: UiMessage
 
-            val lastAiIndex = messages.indexOfLast { !it.isUser }
+            val lastUserIndex = messages.indexOfLast { it.isUser }
 
-            if (isRetry && lastAiIndex != -1) {
-                val oldMsg = messages[lastAiIndex]
-                messages[lastAiIndex] = oldMsg.copy(
+            val expectedAiIndex = lastUserIndex + 1
+            val existingAiMessage = messages.getOrNull(expectedAiIndex)?.takeIf { !it.isUser }
+
+            if (existingAiMessage != null) {
+                val oldDbId = existingAiMessage.id.toLongOrNull()
+                if (oldDbId != null) {
+                    deleteMessageUseCase(oldDbId)
+                }
+
+                val reusedMsg = existingAiMessage.copy(
                     isError = false,
                     initialText = "",
                     initialIsStreaming = true
                 )
-                messages[lastAiIndex].text = ""
-                targetAiMessage = messages[lastAiIndex]
+                messages[expectedAiIndex] = reusedMsg
+                targetAiMessage = reusedMsg
+
             } else {
-                val newMsg = UiMessage(initialText = "", isUser = false, initialIsStreaming = true)
+                val newMsg = UiMessage(
+                    initialText = "",
+                    isUser = false,
+                    initialIsStreaming = true
+                )
                 messages.add(newMsg)
                 targetAiMessage = newMsg
             }
 
-            summarizeUseCase(sessionId, promptText).collect { chunk ->
+            val modelName = currentModel.value
+
+            summarizeUseCase(sessionId, promptText, modelName).collect { chunk ->
                 targetAiMessage.text += chunk
             }
 
         } catch (e: Exception) {
             val lastAiIndex = messages.indexOfLast { !it.isUser }
-            if (lastAiIndex != -1) {
+            val lastUserIndex = messages.indexOfLast { it.isUser }
+
+            if (lastAiIndex != -1 && lastAiIndex > lastUserIndex) {
                 val errorMsg = messages[lastAiIndex].copy(
                     isError = true,
                     initialText = "Gagal memuat: ${e.message}"
                 )
                 errorMsg.text = "Gagal memuat: ${e.message}"
                 messages[lastAiIndex] = errorMsg
+            } else {
+                messages.add(UiMessage(
+                    initialText = "Error: ${e.message}",
+                    isUser = false,
+                    isError = true
+                ))
             }
         } finally {
             messages.lastOrNull { !it.isUser }?.isStreaming = false

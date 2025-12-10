@@ -4,10 +4,9 @@ import com.achmadichzan.rangkum.domain.model.Message
 import kotlinx.coroutines.flow.Flow
 
 interface AiRepository {
-    suspend fun sendMessage(
+    fun generateContentStream(
         prompt: String,
-        history: List<Message>
-    ): String
-
-    fun generateContentStream(prompt: String): Flow<String>
+        history: List<Message>,
+        modelName: String
+    ): Flow<String>
 }

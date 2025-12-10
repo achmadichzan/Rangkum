@@ -7,14 +7,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.model.Session
-import com.achmadichzan.rangkum.domain.repository.ChatRepository
-import com.achmadichzan.rangkum.domain.repository.SettingsRepository
+import com.achmadichzan.rangkum.domain.usecase.CreateSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.DeleteSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.RestoreSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.SaveMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateSettingsUseCase
 import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -35,9 +37,11 @@ class MainViewModel(
     private val renameSessionUseCase: RenameSessionUseCase,
     private val updateSessionUseCase: UpdateSessionUseCase,
     private val restoreSessionUseCase: RestoreSessionUseCase,
-    private val settingsRepository: SettingsRepository,
+    getSettingsUseCase: GetSettingsUseCase,
     private val getYoutubeTranscriptUseCase: GetYoutubeTranscriptUseCase,
-    private val chatRepository: ChatRepository
+    private val saveMessageUseCase: SaveMessageUseCase,
+    private val createSessionUseCase: CreateSessionUseCase,
+    private val updateSettingsUseCase: UpdateSettingsUseCase
 ) : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
@@ -58,7 +62,7 @@ class MainViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
-    val isDarkMode = settingsRepository.isDarkMode
+    val isDarkMode = getSettingsUseCase.isDarkMode
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -85,7 +89,7 @@ class MainViewModel(
 
     fun toggleTheme(isDark: Boolean) {
         viewModelScope.launch {
-            settingsRepository.toggleTheme(!isDark)
+            updateSettingsUseCase.setDarkMode(!isDark)
         }
     }
 
@@ -99,9 +103,9 @@ class MainViewModel(
                 val rawTranscript = response.transcript ?: ""
                 val videoTitle = response.title ?: "Rangkuman YouTube"
                 val fullPrompt = PromptUtils.create(rawTranscript)
-                val sessionId = chatRepository.createSession(videoTitle)
+                val sessionId = createSessionUseCase(videoTitle)
 
-                chatRepository.saveMessage(sessionId, fullPrompt, isUser = true)
+                saveMessageUseCase(sessionId, fullPrompt, isUser = true)
 
                 onSuccess(sessionId)
             } catch (e: Exception) {

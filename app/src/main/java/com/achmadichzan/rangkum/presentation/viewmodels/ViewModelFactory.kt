@@ -10,12 +10,13 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
             return ChatViewModel(
-                sendMessageUseCase = Injection.provideSendMessageUseCase(context),
                 summarizeUseCase = Injection.provideSummarizeUseCase(context),
                 getHistoryUseCase = Injection.provideGetHistoryUseCase(context),
                 updateMessageUseCase = Injection.provideUpdateMessageUseCase(context),
-                settingsRepository = Injection.provideSettingsRepository(context),
-                chatRepository = Injection.provideChatRepository(context)
+                deleteMessageUseCase = Injection.provideDeleteMessageUseCase(context),
+                saveMessageUseCase = Injection.provideSaveMessageUseCase(context),
+                getSettingsUseCase = Injection.provideGetSettingsUseCase(context),
+                updateSettingsUseCase = Injection.provideUpdateSettingsUseCase(context)
             ) as T
         }
 
@@ -26,9 +27,11 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 restoreSessionUseCase = Injection.provideRestoreSessionUseCase(context),
                 renameSessionUseCase = Injection.provideRenameSessionUseCase(context),
                 updateSessionUseCase = Injection.provideUpdateSessionUseCase(context),
-                settingsRepository = Injection.provideSettingsRepository(context),
                 getYoutubeTranscriptUseCase = Injection.provideGetYoutubeTranscriptUseCase(),
-                chatRepository = Injection.provideChatRepository(context)
+                getSettingsUseCase = Injection.provideGetSettingsUseCase(context),
+                saveMessageUseCase = Injection.provideSaveMessageUseCase(context),
+                updateSettingsUseCase = Injection.provideUpdateSettingsUseCase(context),
+                createSessionUseCase = Injection.provideCreateSessionUseCase(context)
             ) as T
         }
 

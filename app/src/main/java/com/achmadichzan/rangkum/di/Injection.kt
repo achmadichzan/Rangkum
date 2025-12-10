@@ -3,7 +3,6 @@ package com.achmadichzan.rangkum.di
 import android.content.Context
 import com.achmadichzan.rangkum.data.local.AppDatabase
 import com.achmadichzan.rangkum.data.preferences.UserPreferences
-import com.achmadichzan.rangkum.data.remote.GeminiFactory
 import com.achmadichzan.rangkum.data.repository.AiRepositoryImpl
 import com.achmadichzan.rangkum.data.repository.ChatRepositoryImpl
 import com.achmadichzan.rangkum.data.repository.SettingsRepositoryImpl
@@ -12,15 +11,19 @@ import com.achmadichzan.rangkum.domain.repository.AiRepository
 import com.achmadichzan.rangkum.domain.repository.ChatRepository
 import com.achmadichzan.rangkum.domain.repository.SettingsRepository
 import com.achmadichzan.rangkum.domain.repository.YoutubeRepository
+import com.achmadichzan.rangkum.domain.usecase.CreateSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.DeleteMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.DeleteSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.RestoreSessionUseCase
-import com.achmadichzan.rangkum.domain.usecase.SendMessageUseCase
+import com.achmadichzan.rangkum.domain.usecase.SaveMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.UpdateSettingsUseCase
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -46,18 +49,11 @@ object Injection {
     }
 
     fun provideAiRepository(): AiRepository {
-        return AiRepositoryImpl(GeminiFactory.createModel())
+        return AiRepositoryImpl()
     }
 
     fun provideSettingsRepository(context: Context): SettingsRepository {
         return SettingsRepositoryImpl(UserPreferences(context))
-    }
-
-    fun provideSendMessageUseCase(context: Context): SendMessageUseCase {
-        return SendMessageUseCase(
-            chatRepository = provideChatRepository(context),
-            aiRepository = provideAiRepository()
-        )
     }
 
     fun provideSummarizeUseCase(context: Context): SummarizeTranscriptUseCase {
@@ -87,6 +83,27 @@ object Injection {
 
     fun provideUpdateSessionUseCase(context: Context): UpdateSessionUseCase {
         return UpdateSessionUseCase(provideChatRepository(context))
+    }
+
+    fun provideDeleteMessageUseCase(context: Context): DeleteMessageUseCase {
+        val repository = provideChatRepository(context)
+        return DeleteMessageUseCase(repository)
+    }
+
+    fun provideSaveMessageUseCase(context: Context): SaveMessageUseCase {
+        return SaveMessageUseCase(provideChatRepository(context))
+    }
+
+    fun provideGetSettingsUseCase(context: Context): GetSettingsUseCase {
+        return GetSettingsUseCase(provideSettingsRepository(context))
+    }
+
+    fun provideUpdateSettingsUseCase(context: Context): UpdateSettingsUseCase {
+        return UpdateSettingsUseCase(provideSettingsRepository(context))
+    }
+
+    fun provideCreateSessionUseCase(context: Context): CreateSessionUseCase {
+        return CreateSessionUseCase(provideChatRepository(context))
     }
 
     fun provideYoutubeRepository(): YoutubeRepository {

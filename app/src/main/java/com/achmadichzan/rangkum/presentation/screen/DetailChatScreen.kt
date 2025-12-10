@@ -29,13 +29,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -97,6 +101,9 @@ fun DetailChatScreen(
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val currentModel by viewModel.currentModel.collectAsState()
+    val availableModels = viewModel.availableModels
+    var isModelMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.messages.size, lastMessageText) {
         if (viewModel.messages.isNotEmpty()) {
@@ -113,15 +120,64 @@ fun DetailChatScreen(
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 TopAppBar(
-                    title = { Text(
-                        text = viewModel.sessionTitle,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 17.sp
-                    ) },
+                    title = {
+                        Column {
+                            Text(
+                                text = viewModel.sessionTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 17.sp
+                            )
+                            Text(
+                                text = availableModels.find { it.first == currentModel }?.second ?: currentModel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                "Kembali"
+                            )
+                        }
+                    },
+                    actions = {
+                        Box {
+                            IconButton(onClick = { isModelMenuExpanded = true }) {
+                                Icon(
+                                    Icons.Default.SmartToy,
+                                    "Ganti Model"
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = isModelMenuExpanded,
+                                onDismissRequest = { isModelMenuExpanded = false }
+                            ) {
+                                availableModels.forEach { (id, name) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(name)
+                                                if (id == currentModel) {
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Icon(
+                                                        Icons.Default.Check,
+                                                        null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.onModelChange(id)
+                                            isModelMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     },
                     scrollBehavior = scrollBehavior,
