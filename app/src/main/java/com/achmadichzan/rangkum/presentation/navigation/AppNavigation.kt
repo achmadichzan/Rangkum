@@ -2,12 +2,10 @@ package com.achmadichzan.rangkum.presentation.navigation
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
@@ -19,8 +17,12 @@ import androidx.compose.material3.adaptive.navigation.NavigableListDetailPaneSca
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,6 +42,14 @@ fun AppNavigation(onStartOverlaySession: (Long) -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val backNavigationBehavior = BackNavigationBehavior.PopUntilScaffoldValueChange
 
+    var activeSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val currentRoute = navigator.currentDestination?.contentKey
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != null) {
+            activeSessionId = currentRoute.sessionId
+        }
+    }
+
     BackHandler(navigator.canNavigateBack()) {
         coroutineScope.launch {
             navigator.navigateBack(backNavigationBehavior)
@@ -50,8 +60,15 @@ fun AppNavigation(onStartOverlaySession: (Long) -> Unit) {
         navigator = navigator,
         listPane = {
             AnimatedPane(
-                enterTransition = expandHorizontally(expandFrom = Alignment.CenterHorizontally),
-                exitTransition = shrinkHorizontally(shrinkTowards = Alignment.CenterHorizontally)
+                enterTransition = slideInHorizontally(
+                    initialOffsetX = { -it / 2 },
+                    animationSpec = tween(500)
+                ) + fadeIn(animationSpec = tween(500)),
+
+                exitTransition = slideOutHorizontally(
+                    targetOffsetX = { -it / 2 },
+                    animationSpec = tween(500)
+                ) + fadeOut(animationSpec = tween(500))
             ) {
                 MainScreen(
                     onStartSession = { sessionId ->
@@ -71,20 +88,21 @@ fun AppNavigation(onStartOverlaySession: (Long) -> Unit) {
         },
         detailPane = {
             AnimatedPane(
-                enterTransition = scaleIn(
-                    initialScale = 0.95f,
-                    animationSpec = tween(300)
-                ) + fadeIn(tween(300)),
+                enterTransition = slideInHorizontally(
+                    initialOffsetX = { it / 2 },
+                    animationSpec = tween(500)
+                ) + fadeIn(animationSpec = tween(500)),
 
-                exitTransition = scaleOut(
-                    targetScale = 0.95f,
-                    animationSpec = tween(300)
-                ) + fadeOut(tween(300))
+                exitTransition = slideOutHorizontally(
+                    targetOffsetX = { it / 2 },
+                    animationSpec = tween(500)
+                ) + fadeOut(animationSpec = tween(500))
             ) {
-                navigator.currentDestination?.contentKey?.let { currentRoute ->
-                    val sessionId = currentRoute.sessionId
+                val sessionId = activeSessionId
 
+                if (sessionId != null) {
                     val factory = remember { ViewModelFactory(context) }
+
                     val chatViewModel: ChatViewModel = viewModel(
                         key = sessionId.toString(),
                         factory = factory
@@ -112,13 +130,13 @@ fun AppNavigation(onStartOverlaySession: (Long) -> Unit) {
                             onStartOverlaySession(sessionId)
                         }
                     )
-                } ?:
-
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Pilih percakapan dari daftar", color = Color.Gray)
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Pilih percakapan dari daftar", color = Color.Gray)
+                    }
                 }
             }
         }
