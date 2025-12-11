@@ -32,7 +32,7 @@ class ChatViewModel(
     private val updateSettingsUseCase: UpdateSettingsUseCase,
 ) : ViewModel() {
     val availableModels = listOf(
-        "gemini-2.5-flash-lite" to "Flash Lite (Cepat)",
+        "gemini-2.5-flash-lite" to "Flash 2.5 Lite (Cepat)",
         "gemini-2.5-flash" to "Flash 2.5 (Standar)",
         "gemini-2.5-pro" to "Pro 2.5 (Pintar)"
     )
@@ -187,20 +187,22 @@ class ChatViewModel(
     private suspend fun sendMessageCore(promptText: String) {
         isLoading = true
 
+        val errorSeparator = "\n\n> ⚠️ **Gagal Regenerate:** "
+
+        var oldDbIdToDelete: Long? = null
+        var oldTextBackup: String? = null
+
         try {
             val sessionId = currentSessionId!!
             val targetAiMessage: UiMessage
 
             val lastUserIndex = messages.indexOfLast { it.isUser }
-
             val expectedAiIndex = lastUserIndex + 1
             val existingAiMessage = messages.getOrNull(expectedAiIndex)?.takeIf { !it.isUser }
 
             if (existingAiMessage != null) {
-                val oldDbId = existingAiMessage.id.toLongOrNull()
-                if (oldDbId != null) {
-                    deleteMessageUseCase(oldDbId)
-                }
+                oldDbIdToDelete = existingAiMessage.id.toLongOrNull()
+                oldTextBackup = existingAiMessage.text.split(errorSeparator)[0]
 
                 val reusedMsg = existingAiMessage.copy(
                     isError = false,
@@ -226,23 +228,39 @@ class ChatViewModel(
                 targetAiMessage.text += chunk
             }
 
+            if (oldDbIdToDelete != null) {
+                deleteMessageUseCase(oldDbIdToDelete)
+            }
+
         } catch (e: Exception) {
             val lastAiIndex = messages.indexOfLast { !it.isUser }
-            val lastUserIndex = messages.indexOfLast { it.isUser }
 
-            if (lastAiIndex != -1 && lastAiIndex > lastUserIndex) {
-                val errorMsg = messages[lastAiIndex].copy(
+            if (oldTextBackup != null && lastAiIndex != -1) {
+                val textWithError = oldTextBackup + errorSeparator + (e.message ?: "Unknown error")
+
+                val restoredMsg = messages[lastAiIndex].copy(
                     isError = true,
-                    initialText = "Gagal memuat: ${e.message}"
+                    initialText = textWithError,
+                    initialIsStreaming = false
                 )
-                errorMsg.text = "Gagal memuat: ${e.message}"
-                messages[lastAiIndex] = errorMsg
+                restoredMsg.text = textWithError
+                messages[lastAiIndex] = restoredMsg
+
             } else {
-                messages.add(UiMessage(
-                    initialText = "Error: ${e.message}",
-                    isUser = false,
-                    isError = true
-                ))
+                if (lastAiIndex != -1) {
+                    val errorMsg = messages[lastAiIndex].copy(
+                        isError = true,
+                        initialText = "Gagal memuat: ${e.message}"
+                    )
+                    errorMsg.text = "Gagal memuat: ${e.message}"
+                    messages[lastAiIndex] = errorMsg
+                } else {
+                    messages.add(UiMessage(
+                        initialText = "Error: ${e.message}",
+                        isUser = false,
+                        isError = true
+                    ))
+                }
             }
         } finally {
             messages.lastOrNull { !it.isUser }?.isStreaming = false

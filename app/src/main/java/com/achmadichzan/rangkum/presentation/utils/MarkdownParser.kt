@@ -16,36 +16,29 @@ object MarkdownParser {
         primaryColor: Color,
         onBackground: Color = Color.Black
     ): AnnotatedString {
-
-        val codeBackgroundColor = onBackground.copy(alpha = 0.1f)
-        val codeFontColor = onBackground.copy(alpha = 0.9f)
-
         return buildAnnotatedString {
             val lines = text.split("\n")
             var inCodeBlock = false
+
+            val codeBg = onBackground.copy(alpha = 0.1f)
 
             lines.forEachIndexed { index, line ->
                 val trimmedLine = line.trim()
 
                 if (trimmedLine.startsWith("```")) {
                     inCodeBlock = !inCodeBlock
-                    return@forEachIndexed
                 }
 
-                if (inCodeBlock) {
-                    withStyle(
-                        style = SpanStyle(
-                            fontFamily = FontFamily.Monospace,
-                            background = codeBackgroundColor,
-                            color = codeFontColor,
-                            fontSize = 13.sp
-                        )
-                    ) {
+                if (inCodeBlock && !trimmedLine.startsWith("```")) {
+                    withStyle(SpanStyle(
+                        fontFamily = FontFamily.Monospace,
+                        background = codeBg,
+                        fontSize = 13.sp
+                    )) {
                         append(line)
                     }
-                }
-                else {
-                    processLine(line, trimmedLine, primaryColor, codeBackgroundColor)
+                } else {
+                    appendFormattedString(line, primaryColor, codeBg)
                 }
 
                 if (index < lines.lastIndex) {
@@ -55,57 +48,74 @@ object MarkdownParser {
         }
     }
 
-    private fun AnnotatedString.Builder.processLine(
-        originalLine: String,
-        trimmedLine: String,
-        primaryColor: Color,
-        codeBackgroundColor: Color
-    ) {
-        when {
-            trimmedLine.startsWith("#") -> {
-                val level = trimmedLine.takeWhile { it == '#' }.length
-                val content = trimmedLine.substring(level).trimStart()
-
-                val fontSize = when (level) {
-                    1 -> 20.sp
-                    2 -> 18.sp
-                    3 -> 17.sp
-                    else -> 16.sp
-                }
-
-                withStyle(style = SpanStyle(fontSize = fontSize, fontWeight = FontWeight.Bold)) {
-                    append(content)
-                }
-            }
-
-            (trimmedLine.startsWith("* ") || trimmedLine.startsWith("- ")) -> {
-                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = primaryColor)) {
-                    append("• ")
-                }
-                parseInlineFormatting(trimmedLine.substring(2), primaryColor, codeBackgroundColor)
-            }
-
-            trimmedLine.matches(Regex("^\\d+\\.\\s.*")) -> {
-                val dotIndex = trimmedLine.indexOf(".")
-                val numberPart = trimmedLine.take(dotIndex + 1)
-                val contentPart = trimmedLine.substring(dotIndex + 1).trimStart()
-
-                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = primaryColor)) {
-                    append("$numberPart ")
-                }
-                parseInlineFormatting(contentPart, primaryColor, codeBackgroundColor)
-            }
-
-            else -> {
-                parseInlineFormatting(originalLine, primaryColor, codeBackgroundColor)
-            }
-        }
-    }
-
-    private fun AnnotatedString.Builder.parseInlineFormatting(
+    fun parseToBlocks(
         text: String,
         primaryColor: Color,
-        codeBackground: Color
+        onBackground: Color = Color.Black
+    ): List<MarkdownBlock> {
+
+        val blocks = mutableListOf<MarkdownBlock>()
+        val lines = text.split("\n")
+        var inCodeBlock = false
+        val codeBuffer = StringBuilder()
+        val codeBg = onBackground.copy(alpha = 0.1f)
+
+        fun parseInline(input: String): AnnotatedString {
+            return buildAnnotatedString {
+                appendFormattedString(input, primaryColor, codeBg)
+            }
+        }
+
+        lines.forEach { line ->
+            val trimmed = line.trim()
+
+            if (trimmed.startsWith("```")) {
+                inCodeBlock = !inCodeBlock
+                if (!inCodeBlock && codeBuffer.isNotEmpty()) {
+                    blocks.add(MarkdownBlock.CodeBlock(codeBuffer.toString()))
+                    codeBuffer.clear()
+                }
+                return@forEach
+            }
+
+            if (inCodeBlock) {
+                codeBuffer.append(line).append("\n")
+                return@forEach
+            }
+            if (trimmed.startsWith("#")) {
+                val level = trimmed.takeWhile { it == '#' }.length
+                val content = trimmed.substring(level).trimStart()
+                blocks.add(MarkdownBlock.Header(AnnotatedString(content), level))
+            }
+            else if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
+                val content = trimmed.substring(2).trimStart()
+
+                blocks.add(MarkdownBlock.ListBullet(parseInline(content)))
+            }
+            else if (trimmed.matches(Regex("^\\d+\\.\\s.*"))) {
+                val dotIndex = trimmed.indexOf(".")
+                val number = trimmed.take(dotIndex + 1)
+
+                val content = trimmed.substring(dotIndex + 1).trimStart()
+
+                blocks.add(MarkdownBlock.ListNumber(number, parseInline(content)))
+            }
+            else if (trimmed.startsWith("> ")) {
+                val content = trimmed.substring(1).trimStart()
+                blocks.add(MarkdownBlock.BlockQuote(parseInline(content)))
+            }
+            else if (line.isNotEmpty()) {
+                blocks.add(MarkdownBlock.Text(parseInline(line)))
+            }
+        }
+
+        return blocks
+    }
+
+    private fun AnnotatedString.Builder.appendFormattedString(
+        text: String,
+        primaryColor: Color,
+        codeBackgroundColor: Color
     ) {
         val combinedRegex = Regex("(\\*\\*(.*?)\\*\\*)|(`(.*?)`)|(\\*(.*?)\\*)")
         var cursor = 0
@@ -120,25 +130,26 @@ object MarkdownParser {
             when {
                 value.startsWith("**") -> {
                     val content = match.groupValues[2]
-                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, color = primaryColor)) {
+                    withStyle(SpanStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = primaryColor
+                    )) {
                         append(content)
                     }
                 }
                 value.startsWith("`") -> {
                     val content = match.groupValues[4]
-                    withStyle(
-                        style = SpanStyle(
-                            fontFamily = FontFamily.Monospace,
-                            background = codeBackground,
-                            fontSize = 13.sp
-                        )
-                    ) {
+                    withStyle(SpanStyle(
+                        fontFamily = FontFamily.Monospace,
+                        background = codeBackgroundColor,
+                        fontSize = 13.sp
+                    )) {
                         append(content)
                     }
                 }
                 value.startsWith("*") -> {
                     val content = match.groupValues[6]
-                    withStyle(style = SpanStyle(fontStyle = FontStyle.Italic)) {
+                    withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
                         append(content)
                     }
                 }

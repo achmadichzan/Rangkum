@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,7 +46,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.presentation.utils.MarkdownBlock
 import com.achmadichzan.rangkum.presentation.utils.MarkdownParser
+import com.achmadichzan.rangkum.presentation.utils.RenderMarkdownBlock
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -177,22 +181,51 @@ fun MessageBubble(
                     }
                 }
                 else {
-                    val styledText = remember(displayedText, textColor) {
-                        MarkdownParser.parse(
-                            text = displayedText,
-                            primaryColor = textColor,
-                            onBackground = textColor
-                        )
-                    }
+                    val useFastRendering = message.isStreaming
 
-                    SelectionContainer {
-                        Text(
-                            text = styledText,
-                            color = textColor,
-                            style = MaterialTheme.typography.bodyMedium,
-                            lineHeight = 20.sp,
-                            modifier = Modifier.animateContentSize()
-                        )
+                    if (useFastRendering) {
+                        val fastStyledText = remember(displayedText) {
+                            MarkdownParser.parse(
+                                text = displayedText,
+                                primaryColor = textColor
+                            )
+                        }
+
+                        SelectionContainer {
+                            Text(
+                                text = fastStyledText,
+                                color = textColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 20.sp
+                            )
+                        }
+                    } else {
+                        val blocks = remember(displayedText) {
+                            MarkdownParser.parseToBlocks(
+                                text = displayedText,
+                                primaryColor = textColor,
+                                onBackground = textColor
+                            )
+                        }
+
+                        SelectionContainer {
+                            Column(modifier = Modifier.animateContentSize()) {
+                                blocks.forEachIndexed { index, block ->
+                                    key(index) {
+                                        RenderMarkdownBlock(block, textColor)
+                                    }
+                                    val isCurrentList = block is MarkdownBlock.ListBullet
+                                            || block is MarkdownBlock.ListNumber
+                                    val nextBlock = blocks.getOrNull(index + 1)
+                                    val isNextList = nextBlock is MarkdownBlock.ListBullet
+                                            || nextBlock is MarkdownBlock.ListNumber
+
+                                    if (isCurrentList && !isNextList) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Row(
