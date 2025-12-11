@@ -13,7 +13,6 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -75,6 +74,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -120,6 +121,14 @@ fun DetailChatScreen(
     val currentModel by viewModel.currentModel.collectAsState()
     val availableModels = viewModel.availableModels
     var isModelMenuExpanded by remember { mutableStateOf(false) }
+    val windowInfo = LocalWindowInfo.current
+    val windowSize = windowInfo.containerSize
+    val density = LocalDensity.current
+    val screenWidthDp = with(density) { windowSize.width.toDp() }
+    val screenHeightDp = with(density) { windowSize.height.toDp() }
+    val isTablet = screenWidthDp >= 600.dp
+    val isLandscape = screenWidthDp > screenHeightDp
+    val showBackButton = !isLandscape && !isTablet
 
     LaunchedEffect(viewModel.messages.size, lastMessageText) {
         if (viewModel.messages.isNotEmpty()) {
@@ -131,279 +140,270 @@ fun DetailChatScreen(
     }
 
     RangkumTheme(darkTheme = isDarkFinal) {
-        BoxWithConstraints {
-            val isTablet = maxWidth >= 600.dp
-            val isLandscape = maxWidth > maxHeight
-            val showBackButton = !isLandscape && !isTablet
-
-            Scaffold(
-                modifier = Modifier.fillMaxSize().imePadding()
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                topBar = {
-                    TopAppBar(
-                        title = {
-                            Column {
-                                Text(
-                                    text = viewModel.sessionTitle,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    fontSize = 17.sp
-                                )
-                                Text(
-                                    text = availableModels.find { it.first == currentModel }?.second
-                                        ?: currentModel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
-                        navigationIcon = {
-                            if (showBackButton) {
-                                IconButton(onClick = onBackClick) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        "Kembali"
-                                    )
-                                }
-                            }
-                        },
-                        actions = {
-                            Box {
-                                IconButton(onClick = { isModelMenuExpanded = true }) {
-                                    Icon(
-                                        Icons.Default.SmartToy,
-                                        "Ganti Model"
-                                    )
-                                }
-
-                                DropdownMenu(
-                                    expanded = isModelMenuExpanded,
-                                    onDismissRequest = { isModelMenuExpanded = false }
-                                ) {
-                                    availableModels.forEach { (id, name) ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(name)
-                                                    if (id == currentModel) {
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Icon(
-                                                            Icons.Default.Check,
-                                                            null,
-                                                            modifier = Modifier.size(16.dp)
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                            onClick = {
-                                                viewModel.onModelChange(id)
-                                                isModelMenuExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        scrollBehavior = scrollBehavior,
-                    )
-                },
-                contentWindowInsets = WindowInsets.safeDrawing
-            ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .padding(top = innerPadding.calculateTopPadding())
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                ) {
-                    Box(modifier = Modifier.size(1.dp).focusable())
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            bottom = 75.dp,
-                            start = 16.dp,
-                            end = 16.dp
-                        )
-                    ) {
-                        items(
-                            viewModel.messages,
-                            key = { it.id },
-                            contentType = { if (it.isUser) 1 else 2 }
-                        ) { message ->
-                            MessageBubble(
-                                message = message,
-                                onRetry = {
-                                    val currentIndex = viewModel.messages.indexOf(message)
-                                    if (currentIndex > 0) {
-                                        val userPrompt = viewModel.messages[currentIndex - 1].text
-                                        viewModel.regenerateResponse(userPrompt)
-                                    }
-                                },
-                                onEditSave = { newPrompt -> viewModel.regenerateResponse(newPrompt) },
-                                onShowMenu = { selectedMessage = message }
+        Scaffold(
+            modifier = Modifier.fillMaxSize().imePadding()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                text = viewModel.sessionTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 17.sp
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = availableModels.find { it.first == currentModel }?.second ?: currentModel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+                    },
+                    navigationIcon = {
+                        if (showBackButton) {
+                            IconButton(onClick = onBackClick) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    "Kembali"
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        Box {
+                            IconButton(onClick = { isModelMenuExpanded = true }) {
+                                Icon(
+                                    Icons.Default.SmartToy,
+                                    "Ganti Model"
+                                )
+                            }
 
-                        if (viewModel.isLoading) {
-                            item {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "AI sedang berpikir...",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
+                            DropdownMenu(
+                                expanded = isModelMenuExpanded,
+                                onDismissRequest = { isModelMenuExpanded = false }
+                            ) {
+                                availableModels.forEach { (id, name) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(name)
+                                                if (id == currentModel) {
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Icon(
+                                                        Icons.Default.Check,
+                                                        null,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.onModelChange(id)
+                                            isModelMenuExpanded = false
+                                        }
                                     )
                                 }
                             }
                         }
-                    }
-
-                    AnimatedVisibility(
-                        visible = showScrollToBottom,
-                        enter = scaleIn() + fadeIn(),
-                        exit = scaleOut() + fadeOut(),
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = 90.dp, end = 16.dp)
-                    ) {
-                        SmallFloatingActionButton(
-                            onClick = {
-                                scope.launch {
-                                    if (viewModel.messages.isNotEmpty()) {
-                                        listState.animateScrollToItem(viewModel.messages.size - 1)
-                                    }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            },
+            contentWindowInsets = WindowInsets.safeDrawing
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .padding(top = innerPadding.calculateTopPadding())
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                Box(modifier = Modifier.size(1.dp).focusable())
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        bottom = 75.dp,
+                        start = 16.dp,
+                        end = 16.dp
+                    )
+                ) {
+                    items(
+                        viewModel.messages,
+                        key = { it.id },
+                        contentType = { if (it.isUser) 1 else 2 }
+                    ) { message ->
+                        MessageBubble(
+                            message = message,
+                            onRetry = {
+                                val currentIndex = viewModel.messages.indexOf(message)
+                                if (currentIndex > 0) {
+                                    val userPrompt = viewModel.messages[currentIndex - 1].text
+                                    viewModel.regenerateResponse(userPrompt)
                                 }
                             },
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            shape = CircleShape
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Ke Bawah"
-                            )
-                        }
+                            onEditSave = { newPrompt -> viewModel.regenerateResponse(newPrompt) },
+                            onShowMenu = { selectedMessage = message }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                        MaterialTheme.colorScheme.surface
-                                    )
+                    if (viewModel.isLoading) {
+                        item {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                            )
-                            .padding(8.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "AI sedang berpikir...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = showScrollToBottom,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 90.dp, end = 16.dp)
+                ) {
+                    SmallFloatingActionButton(
+                        onClick = {
+                            scope.launch {
+                                if (viewModel.messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(viewModel.messages.size - 1)
+                                }
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = CircleShape
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = onStartRecordingClick,
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            ) {
-                                Icon(Icons.Default.GraphicEq, contentDescription = "Rekam")
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            OutlinedTextField(
-                                value = viewModel.userInput,
-                                onValueChange = { viewModel.onInputChange(it) },
-                                modifier = Modifier.weight(1f),
-                                placeholder = {
-                                    if (viewModel.messages.isEmpty()) Text("Tanyakan sesuatu...")
-                                    else Text("Lanjut tanya AI...")
-                                },
-                                maxLines = 3,
-                                shape = RoundedCornerShape(24.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            IconButton(
-                                onClick = { viewModel.sendMessage() },
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Send, "Kirim")
-                            }
-                        }
-                    }
-
-                    if (viewModel.messages.isEmpty()) {
-                        Text(
-                            "Belum ada percakapan.",
-                            modifier = Modifier.align(Alignment.Center)
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Ke Bawah"
                         )
                     }
+                }
 
-                    AnimatedVisibility(
-                        visible = selectedMessage != null,
-                        enter = slideInVertically { it },
-                        exit = slideOutVertically { it },
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                Column(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                    MaterialTheme.colorScheme.surface
+                                )
+                            )
+                        )
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        selectedMessage?.let { message ->
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                                ),
-                                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-                                elevation = CardDefaults.cardElevation(8.dp),
-                                modifier = Modifier.fillMaxWidth()
+                        IconButton(
+                            onClick = onStartRecordingClick,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Icon(Icons.Default.GraphicEq, contentDescription = "Rekam")
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        OutlinedTextField(
+                            value = viewModel.userInput,
+                            onValueChange = { viewModel.onInputChange(it) },
+                            modifier = Modifier.weight(1f),
+                            placeholder = {
+                                if (viewModel.messages.isEmpty()) Text("Tanyakan sesuatu...")
+                                else Text("Lanjut tanya AI...")
+                            },
+                            maxLines = 3,
+                            shape = RoundedCornerShape(24.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        IconButton(
+                            onClick = { viewModel.sendMessage() },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, "Kirim")
+                        }
+                    }
+                }
+
+                if (viewModel.messages.isEmpty()) {
+                    Text(
+                        "Belum ada percakapan.",
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = selectedMessage != null,
+                    enter = slideInVertically { it },
+                    exit = slideOutVertically { it },
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                ) {
+                    selectedMessage?.let { message ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            ),
+                            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                            elevation = CardDefaults.cardElevation(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceAround
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceAround
-                                ) {
-                                    ActionIcon(Icons.Default.ContentCopy, "Salin") {
-                                        scope.launch {
-                                            clipboard.setClipEntry(
-                                                ClipEntry(
-                                                    ClipData.newPlainText(
-                                                        "Rangkum",
-                                                        message.text
-                                                    )
+                                ActionIcon(Icons.Default.ContentCopy, "Salin") {
+                                    scope.launch {
+                                        clipboard.setClipEntry(
+                                            ClipEntry(
+                                                ClipData.newPlainText(
+                                                    "Rangkum",
+                                                    message.text
                                                 )
                                             )
-                                        }
-                                        selectedMessage = null
+                                        )
                                     }
+                                    selectedMessage = null
+                                }
 
-                                    if (message.isUser) {
-                                        ActionIcon(Icons.Default.Edit, "Edit") {
-                                            message.isEditing = true
-                                            selectedMessage = null
-                                        }
-                                    }
-
-                                    ActionIcon(Icons.Default.Close, "Tutup") {
+                                if (message.isUser) {
+                                    ActionIcon(Icons.Default.Edit, "Edit") {
+                                        message.isEditing = true
                                         selectedMessage = null
                                     }
                                 }
+
+                                ActionIcon(Icons.Default.Close, "Tutup") { selectedMessage = null }
                             }
                         }
                     }
