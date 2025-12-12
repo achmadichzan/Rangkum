@@ -119,15 +119,6 @@ com.achmadichzan.rangkum
     * Sync Gradle.
     * Run on a physical device (Emulators often fail with Audio Capture).
 
-### Backend Setup (Optional - for YouTube Feature)
-If you want to host your own backend:
-1.  Navigate to `rangkum-backend` folder.
-2.  Deploy to Google Cloud Run:
-    ```bash
-    gcloud run deploy rangkum-service --source . --allow-unauthenticated
-    ```
-3.  Update `BASE_URL` in `YoutubeRepositoryImpl.kt` with your Cloud Run URL.
-
 ---
 
 ## 🛡️ Permissions
