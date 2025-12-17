@@ -33,7 +33,6 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.gson.gson
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.bind
-import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
@@ -58,19 +57,19 @@ val repositoryModule = module {
     singleOf(::YoutubeRepositoryImpl) { bind<YoutubeRepository>() }
 }
 val domainModule = module {
-    factoryOf(::SummarizeTranscriptUseCase)
-    factoryOf(::GetHistoryUseCase)
-    factoryOf(::UpdateMessageUseCase)
-    factoryOf(::DeleteSessionUseCase)
-    factoryOf(::RenameSessionUseCase)
-    factoryOf(::UpdateSessionUseCase)
-    factoryOf(::DeleteMessageUseCase)
-    factoryOf(::SaveMessageUseCase)
-    factoryOf(::GetSettingsUseCase)
-    factoryOf(::UpdateSettingsUseCase)
-    factoryOf(::CreateSessionUseCase)
-    factoryOf(::GetYoutubeTranscriptUseCase)
-    factoryOf(::RestoreSessionUseCase)
+    singleOf(::SummarizeTranscriptUseCase)
+    singleOf(::GetHistoryUseCase)
+    singleOf(::UpdateMessageUseCase)
+    singleOf(::DeleteSessionUseCase)
+    singleOf(::RenameSessionUseCase)
+    singleOf(::UpdateSessionUseCase)
+    singleOf(::DeleteMessageUseCase)
+    singleOf(::SaveMessageUseCase)
+    singleOf(::GetSettingsUseCase)
+    singleOf(::UpdateSettingsUseCase)
+    singleOf(::CreateSessionUseCase)
+    singleOf(::GetYoutubeTranscriptUseCase)
+    singleOf(::RestoreSessionUseCase)
 }
 val viewModelModule = module {
     viewModelOf(::ChatViewModel)

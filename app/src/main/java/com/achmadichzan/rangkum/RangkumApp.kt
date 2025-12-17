@@ -10,6 +10,7 @@ import com.google.firebase.FirebaseApp
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.GlobalContext.startKoin
+import org.koin.core.logger.Level
 
 class RangkumApp : Application() {
     override fun onCreate() {
@@ -17,7 +18,7 @@ class RangkumApp : Application() {
         FirebaseApp.initializeApp(this)
 
         startKoin {
-            androidLogger()
+            androidLogger(if (BuildConfig.DEBUG) Level.ERROR else Level.NONE)
             androidContext(this@RangkumApp)
             modules(
                 networkModule,
