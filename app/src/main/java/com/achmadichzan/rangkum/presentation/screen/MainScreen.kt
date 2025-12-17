@@ -67,13 +67,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.achmadichzan.rangkum.R
 import com.achmadichzan.rangkum.domain.model.Session
 import com.achmadichzan.rangkum.presentation.components.HistoryItem
@@ -81,13 +79,12 @@ import com.achmadichzan.rangkum.presentation.components.RenameDialog
 import com.achmadichzan.rangkum.presentation.components.SearchBar
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodels.MainViewModel
-import com.achmadichzan.rangkum.presentation.viewmodels.ViewModelFactory
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(onStartSession: (Long) -> Unit) {
-    val factory = ViewModelFactory(LocalContext.current)
-    val viewModel: MainViewModel = viewModel(factory = factory)
+    val viewModel: MainViewModel = koinViewModel()
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
     var showRenameDialog by remember { mutableStateOf(false) }
     var sessionToRename by remember { mutableStateOf<Session?>(null) }

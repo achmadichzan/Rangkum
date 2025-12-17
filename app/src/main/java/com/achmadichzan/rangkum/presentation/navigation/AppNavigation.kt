@@ -19,25 +19,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.achmadichzan.rangkum.presentation.screen.DetailChatScreen
 import com.achmadichzan.rangkum.presentation.screen.MainScreen
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
-import com.achmadichzan.rangkum.presentation.viewmodels.ViewModelFactory
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun AppNavigation(onStartOverlaySession: (Long) -> Unit) {
-    val context = LocalContext.current
     val navigator = rememberListDetailPaneScaffoldNavigator<DetailRoute>()
     val coroutineScope = rememberCoroutineScope()
     val backNavigationBehavior = BackNavigationBehavior.PopUntilScaffoldValueChange
@@ -101,11 +97,8 @@ fun AppNavigation(onStartOverlaySession: (Long) -> Unit) {
                 val sessionId = activeSessionId
 
                 if (sessionId != null) {
-                    val factory = remember { ViewModelFactory(context) }
-
-                    val chatViewModel: ChatViewModel = viewModel(
-                        key = sessionId.toString(),
-                        factory = factory
+                    val chatViewModel: ChatViewModel = koinViewModel(
+                        key = sessionId.toString()
                     )
 
                     LaunchedEffect(sessionId) {

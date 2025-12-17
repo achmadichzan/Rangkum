@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.lifecycleScope
@@ -38,8 +37,8 @@ import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.screen.OverlayChatScreen
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
-import com.achmadichzan.rangkum.presentation.viewmodels.ViewModelFactory
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegistryOwner {
     private lateinit var windowManagerHelper: OverlayWindowManager
@@ -52,10 +51,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private val savedStateRegistryController by lazy { SavedStateRegistryController.create(this) }
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
-    private val chatViewModel: ChatViewModel by lazy {
-        val factory = ViewModelFactory(applicationContext)
-        ViewModelProvider(this, factory)[ChatViewModel::class.java]
-    }
+    private val chatViewModel: ChatViewModel by inject()
 
     private var isAudioPreparing by mutableStateOf(false)
     private var isRecording by mutableStateOf(false)
