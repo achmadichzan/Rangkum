@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -9,6 +12,25 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("release") {
+            val keystorePropertiesFile = rootProject.file("local.properties")
+            val keystoreProperties = Properties()
+            if (keystorePropertiesFile.exists()) {
+                keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+            }
+            val keyPath = keystoreProperties.getProperty("store.file")
+
+            if (keyPath != null) {
+                storeFile = file(keyPath)
+                storePassword = keystoreProperties.getProperty("store.password")
+                keyAlias = keystoreProperties.getProperty("key.alias")
+                keyPassword = keystoreProperties.getProperty("key.password")
+            } else {
+                println("Warning: Keystore properties not found in local.properties")
+            }
+        }
+    }
     namespace = "com.achmadichzan.rangkum"
     compileSdk {
         version = release(36)
@@ -22,9 +44,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
     }
 
     buildTypes {
@@ -35,6 +54,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -51,11 +71,6 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-    }
-
-    lint {
-        abortOnError = false
-        checkReleaseBuilds = false
     }
 }
 

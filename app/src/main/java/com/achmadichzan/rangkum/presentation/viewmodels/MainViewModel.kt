@@ -101,7 +101,7 @@ class MainViewModel(
             try {
                 val response = getYoutubeTranscriptUseCase(url)
                 val rawTranscript = response.transcript ?: ""
-                val videoTitle = response.title ?: "Rangkuman YouTube"
+                val videoTitle = "${response.title} - ${response.channel}"
                 val fullPrompt = PromptUtils.create(rawTranscript)
                 val sessionId = createSessionUseCase(videoTitle)
 
