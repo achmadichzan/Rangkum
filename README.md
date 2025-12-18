@@ -6,7 +6,7 @@
 ![Vosk](https://img.shields.io/badge/STT-Vosk%20Offline-green)
 ![Cloud Run](https://img.shields.io/badge/Backend-Google%20Cloud%20Run-blue?logo=googlecloud)
 
-**Rangkum** is a powerful Android productivity tool designed to transcribe and summarize '**English**' audio in real-time. It features a **Floating Overlay** that captures internal system audio (Zoom, Meet, Youtube) and uses **Offline Speech-to-Text** combined with **Generative AI** to create concise summaries instantly.
+**Rangkum** is a powerful Android productivity tool designed to transcribe and summarize audio in real-time. It features a **Floating Overlay** that captures internal system audio (Zoom, Meet, Youtube, etc) and uses **Offline Speech-to-Text** combined with **Generative AI** to create concise summaries instantly.
 
 It also supports **YouTube Link Summarization** via a custom Python backend.
 
@@ -31,7 +31,7 @@ It also supports **YouTube Link Summarization** via a custom Python backend.
     * Privacy-focused: Audio processing happens on-device (16kHz).
     * Thread-safe implementation with Mutex buffer handling.
 * **🧠 AI Summarization:**
-    * Integrated with **Google Gemini 2.5 Flash**.
+    * Integrated with **Google Gemini 2.5 Flash, Gemini 2.5 Flash Lite, Gemini 2.5 Pro (Paid)**.
     * **Streaming Response:** Text appears word-by-word (typewriter effect) for zero-latency feel.
     * Custom Markdown rendering for clean output.
 * **📺 YouTube Summarizer:**
@@ -55,7 +55,7 @@ It also supports **YouTube Link Summarization** via a custom Python backend.
 * **Language:** Kotlin
 * **Architecture:** Clean Architecture (MVVM + Repository Pattern)
 * **UI:** Jetpack Compose, Material 3 Adaptive
-* **Dependency Injection:** Manual DI (Service Locator Pattern)
+* **Dependency Injection:** Koin
 * **Concurrency:** Coroutines & Flow
 * **Network:** Ktor Client (for Backend API)
 * **Database:** Room (SQLite)
@@ -137,4 +137,4 @@ Contributions are welcome! Please fork the repository and create a pull request 
 
 ---
 
-**Built with ❤️ by Achmad Ichzan**
+**Built by Achmad Ichzan & Gemini 3 Pro**
