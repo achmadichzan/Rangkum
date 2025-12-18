@@ -27,7 +27,7 @@ It also supports **YouTube Link Summarization** via a custom Python backend.
     * Captures system audio (Android 10+) directly without microphone noise.
     * **Resizible & Collapsible** window.
 * **🗣️ Offline Speech-to-Text (STT):**
-    * Powered by **Vosk** (`vosk-model-small-en-us-0.15`).
+    * Powered by **Vosk**.
     * Privacy-focused: Audio processing happens on-device (16kHz).
     * Thread-safe implementation with Mutex buffer handling.
 * **🧠 AI Summarization:**
