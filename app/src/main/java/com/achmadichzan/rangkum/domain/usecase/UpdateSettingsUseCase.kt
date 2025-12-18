@@ -10,4 +10,8 @@ class UpdateSettingsUseCase(private val settingsRepository: SettingsRepository) 
     suspend fun setModel(modelName: String) {
         settingsRepository.setModel(modelName)
     }
+
+    suspend fun setVoskModel(code: String) {
+        settingsRepository.setVoskModel(code)
+    }
 }

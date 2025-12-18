@@ -106,6 +106,7 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.material)
 
+    implementation(platform(libs.ktor.bom))
     implementation(libs.bundles.ktor)
 
     implementation(libs.androidx.navigation.compose)

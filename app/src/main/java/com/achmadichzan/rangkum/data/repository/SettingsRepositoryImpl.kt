@@ -18,4 +18,10 @@ class SettingsRepositoryImpl(
     override suspend fun setModel(modelName: String) {
         userPreferences.setModel(modelName)
     }
+
+    override val selectedVoskModelCode: Flow<String?> = userPreferences.voskModelCode
+
+    override suspend fun setVoskModel(code: String) {
+        userPreferences.setVoskModel(code)
+    }
 }

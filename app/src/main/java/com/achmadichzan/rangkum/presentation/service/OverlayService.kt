@@ -8,9 +8,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import android.view.KeyEvent
 import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -34,11 +31,15 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.achmadichzan.rangkum.MainActivity
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.domain.usecase.GetActiveVoskModelPathUseCase
 import com.achmadichzan.rangkum.presentation.screen.OverlayChatScreen
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
+import java.io.File
 
 class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegistryOwner {
     private lateinit var windowManagerHelper: OverlayWindowManager
@@ -57,6 +58,9 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private var isRecording by mutableStateOf(false)
     private var isPaused by mutableStateOf(false)
 
+    private val getActiveVoskModelPathUseCase: GetActiveVoskModelPathUseCase by inject()
+    private var activeModelPath: String? = null
+
     override fun onCreate() {
         super.onCreate()
         savedStateRegistryController.performRestore(null)
@@ -64,6 +68,17 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
         windowManagerHelper = OverlayWindowManager(this)
         windowManagerHelper.createParams()
+
+        lifecycleScope.launch {
+            getActiveVoskModelPathUseCase().collect { path ->
+                if (path != null) {
+                    val file = File(path)
+                    activeModelPath = (if (file.exists()) path else null)
+                } else {
+                    activeModelPath = null
+                }
+            }
+        }
 
         audioTranscriber = AudioTranscriber(this, lifecycleScope, object : AudioTranscriber.TranscriberCallback {
             override fun onStatusUpdate(status: String) {
@@ -245,22 +260,33 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
         }
         val sessionId = intent.getLongExtra("EXTRA_SESSION_ID", -1L)
 
-        if (resultCode != 0 && resultData != null) {
-            if (isRecording || isAudioPreparing) {
-                Log.w("OverlayService", "Permintaan start diabaikan karena sedang aktif.")
-                return
+        lifecycleScope.launch {
+            isAudioPreparing = true
+
+            var currentPath = activeModelPath
+            if (currentPath == null) {
+                currentPath = getActiveVoskModelPathUseCase().first()
+            }
+
+            if (currentPath == null) {
+                chatViewModel.messages.add(UiMessage(
+                    initialText = "Gagal: Bahasa belum diunduh. Silakan cek pemilihan bahasa.",
+                    isUser = false,
+                    isError = true
+                ))
+                isAudioPreparing = false
+                return@launch
             }
 
             if (sessionId != -1L) chatViewModel.loadHistorySession(sessionId)
             else chatViewModel.startNewSession()
 
-            isAudioPreparing = true
-            Handler(Looper.getMainLooper()).postDelayed({
-                isRecording = true
-                isAudioPreparing = false
-                startForegroundServiceNotification()
-                audioTranscriber.start(resultCode, resultData)
-            }, 1000)
+            delay(1000)
+
+            isRecording = true
+            isAudioPreparing = false
+            startForegroundServiceNotification()
+            audioTranscriber.start(resultCode, resultData!!, currentPath)
         }
     }
 

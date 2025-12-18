@@ -75,21 +75,28 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.achmadichzan.rangkum.R
 import com.achmadichzan.rangkum.domain.model.Session
 import com.achmadichzan.rangkum.presentation.components.HistoryItem
+import com.achmadichzan.rangkum.presentation.components.LanguageSelectionDialog
 import com.achmadichzan.rangkum.presentation.components.RenameDialog
 import com.achmadichzan.rangkum.presentation.components.SearchBar
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
+import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import com.achmadichzan.rangkum.presentation.viewmodels.MainViewModel
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(onStartSession: (Long) -> Unit) {
-    val viewModel: MainViewModel = koinViewModel()
+fun MainScreen(
+    viewModel: MainViewModel = koinViewModel(),
+    chatViewModel: ChatViewModel = koinViewModel(),
+    onStartSession: (Long) -> Unit
+) {
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
     var showRenameDialog by remember { mutableStateOf(false) }
     var sessionToRename by remember { mutableStateOf<Session?>(null) }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val voskModels by chatViewModel.voskModels.collectAsState()
+    var showNewChatLanguageDialog by remember { mutableStateOf(false) }
     val userPrefDark by viewModel.isDarkMode.collectAsState()
     val systemDark = isSystemInDarkTheme()
     val isDarkFinal = userPrefDark ?: systemDark
@@ -146,6 +153,17 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
     }
 
     RangkumTheme(darkTheme = isDarkFinal) {
+        if (showNewChatLanguageDialog) {
+            LanguageSelectionDialog(
+                models = voskModels,
+                onDismiss = { showNewChatLanguageDialog = false },
+                onDownload = { chatViewModel.downloadModel(it) },
+                onSelect = { chatViewModel.selectVoskModel(it) },
+                onDelete = { chatViewModel.deleteModel(it) },
+                onConfirm = { onStartSession(-1L) }
+            )
+        }
+
         Scaffold(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
@@ -190,7 +208,7 @@ fun MainScreen(onStartSession: (Long) -> Unit) {
                         }
 
                         FloatingActionButton(
-                            onClick = { onStartSession(-1L) },
+                            onClick = { showNewChatLanguageDialog = true},
                             containerColor = MaterialTheme.colorScheme.primary
                         ) {
                             Icon(Icons.Default.Add, "Chat Baru")

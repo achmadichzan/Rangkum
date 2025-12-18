@@ -7,5 +7,7 @@ interface SettingsRepository {
     suspend fun toggleTheme(isDark: Boolean)
 
     val selectedModel: Flow<String>
+    val selectedVoskModelCode: Flow<String?>
+    suspend fun setVoskModel(code: String)
     suspend fun setModel(modelName: String)
 }

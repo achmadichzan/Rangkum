@@ -7,10 +7,10 @@ coreKtx = "1.17.0"
 lifecycleRuntimeKtx = "2.10.0"
 lifecycleViewmodelKtx = "2.10.0"
 activityCompose = "1.12.1"
-composeBom = "2025.12.00"
+composeBom = "2025.12.01"
 uiText = "1.10.0"
 
-firebaseBom = "34.6.0"
+firebaseBom = "34.7.0"
 materialIconsExtended = "1.7.8"
 lifecycleService = "2.10.0"
 uiGraphics = "1.10.0"
@@ -20,11 +20,11 @@ voskAndroid = "0.3.75"
 datastorePreferences = "1.2.0"
 coreSplashscreen = "1.2.0"
 material = "1.13.0"
-ktorVersion = "3.3.3"
+ktorBom = "3.3.3"
 navigationCompose = "2.9.6"
 kotlinxSerializationJson = "1.9.0"
-material_adaptive = "1.2.0"
-koin-bom = "4.1.1"
+materialAdaptive = "1.2.0"
+koinBom = "4.1.1"
 
 junit = "4.13.2"
 junitVersion = "1.3.0"
@@ -63,20 +63,21 @@ androidx-savedstate-ktx = { module = "androidx.savedstate:savedstate-ktx", versi
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
-material-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "material_adaptive" }
-material-adaptive-layout = { module = "androidx.compose.material3.adaptive:adaptive-layout", version.ref = "material_adaptive" }
-material-adaptive-navigation = { module = "androidx.compose.material3.adaptive:adaptive-navigation", version.ref = "material_adaptive" }
+material-adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "materialAdaptive" }
+material-adaptive-layout = { module = "androidx.compose.material3.adaptive:adaptive-layout", version.ref = "materialAdaptive" }
+material-adaptive-navigation = { module = "androidx.compose.material3.adaptive:adaptive-navigation", version.ref = "materialAdaptive" }
 
-ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktorVersion" }
-ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorVersion" }
-ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorVersion" }
-ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktorVersion" }
-ktor-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktorVersion" }
+ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktorBom" }
+ktor-client-core = { module = "io.ktor:ktor-client-core"}
+ktor-client-android = { module = "io.ktor:ktor-client-android"}
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation"}
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json"}
+ktor-client-logging = { module = "io.ktor:ktor-client-logging"}
 
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 
-koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin-bom" }
+koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koinBom" }
 koin-core = { module = "io.insert-koin:koin-core" }
 koin-android = { module = "io.insert-koin:koin-android" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose" }
@@ -95,11 +96,11 @@ room = [
 ]
 
 ktor = [
-    "ktor-client-android",
     "ktor-client-core",
+    "ktor-client-android",
     "ktor-client-content-negotiation",
+    "ktor-serialization-json",
     "ktor-client-logging",
-    "ktor-serialization-gson"
 ]
 
 material-adaptive = [

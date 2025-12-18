@@ -23,7 +23,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
-import org.vosk.android.StorageService
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -53,7 +52,7 @@ class AudioTranscriber(
     private val isPaused = AtomicBoolean(false)
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(resultCode: Int, resultData: Intent) {
+    fun start(resultCode: Int, resultData: Intent, modelPath: String) {
         isPaused.store(false)
         reset()
         isSilentStop = false
@@ -103,7 +102,7 @@ class AudioTranscriber(
 
             audioRecord?.startRecording()
             isRecording = true
-            startProcessingLoop(audioRecord!!)
+            startProcessingLoop(audioRecord!!, modelPath)
 
         } catch (e: Exception) {
             callback.onError("Start Gagal: ${e.message}")
@@ -111,20 +110,26 @@ class AudioTranscriber(
         }
     }
 
-    private fun startProcessingLoop(record: AudioRecord) {
+    private fun startProcessingLoop(record: AudioRecord, modelPath: String) {
         finalTranscript.clear()
 
         transcriptionJob = scope.launch(Dispatchers.IO) {
-            if (voskModel == null) {
-                try {
-                    withContext(Dispatchers.Main) { callback.onStatusUpdate("Memuat Model...") }
-                    val modelPath = StorageService.sync(context, "model-en", "model")
-                    voskModel = Model(modelPath)
-                    voskRecognizer = Recognizer(voskModel, 16000.0f)
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { callback.onError("Gagal Load Model: ${e.message}") }
-                    return@launch
+            if (voskModel != null) {
+                voskModel?.close()
+                voskModel = null
+            }
+
+            try {
+                withContext(Dispatchers.Main) {
+                    callback.onStatusUpdate("Memuat Model Bahasa...")
                 }
+                voskModel = Model(modelPath)
+                voskRecognizer = Recognizer(voskModel, 16000.0f)
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback.onError("Gagal Load Model: ${e.message}")
+                }
+                return@launch
             }
 
             voskRecognizer?.reset()
@@ -235,6 +240,8 @@ class AudioTranscriber(
         stop()
         transcriptionJob?.cancel()
         cleanupResources()
+        voskModel?.close()
+        voskModel = null
     }
 
     fun reset() {

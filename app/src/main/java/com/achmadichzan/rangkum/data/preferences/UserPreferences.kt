@@ -29,14 +29,25 @@ class UserPreferences(private val context: Context) {
             preferences[KEY_SELECTED_MODEL] ?: "gemini-2.5-flash-lite"
         }
 
+    val voskModelCode: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[VOSK_MODEL_KEY]
+    }
+
     suspend fun setModel(modelName: String) {
         context.dataStore.edit { preferences ->
             preferences[KEY_SELECTED_MODEL] = modelName
         }
     }
 
+    suspend fun setVoskModel(code: String) {
+        context.dataStore.edit { preferences ->
+            preferences[VOSK_MODEL_KEY] = code
+        }
+    }
+
     companion object {
         private val IS_DARK_MODE = booleanPreferencesKey("is_dark_mode")
         private val KEY_SELECTED_MODEL = stringPreferencesKey("selected_model")
+        private val VOSK_MODEL_KEY = stringPreferencesKey("vosk_model_code")
     }
 }

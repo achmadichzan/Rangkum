@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -79,8 +80,10 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.achmadichzan.rangkum.domain.model.ModelStatus
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
+import com.achmadichzan.rangkum.presentation.components.LanguageSelectionDialog
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
@@ -93,6 +96,8 @@ fun DetailChatScreen(
     onBackClick: () -> Unit,
     onStartRecordingClick: () -> Unit
 ) {
+    val voskModels by viewModel.voskModels.collectAsState()
+    var showLanguageDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val userPrefDark by viewModel.isDarkMode.collectAsState()
     val systemDark = isSystemInDarkTheme()
@@ -140,8 +145,21 @@ fun DetailChatScreen(
     }
 
     RangkumTheme(darkTheme = isDarkFinal) {
+        if (showLanguageDialog) {
+            LanguageSelectionDialog(
+                models = voskModels,
+                onDismiss = { showLanguageDialog = false },
+                onDownload = { viewModel.downloadModel(it) },
+                onSelect = { viewModel.selectVoskModel(it) },
+                onDelete = { viewModel.deleteModel(it) },
+                onConfirm = null
+            )
+        }
+
         Scaffold(
-            modifier = Modifier.fillMaxSize().imePadding()
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 TopAppBar(
@@ -153,11 +171,24 @@ fun DetailChatScreen(
                                 overflow = TextOverflow.Ellipsis,
                                 fontSize = 17.sp
                             )
-                            Text(
-                                text = availableModels.find { it.first == currentModel }?.second ?: currentModel,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = availableModels.find { it.first == currentModel }?.second ?: currentModel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                val activeLang = voskModels.find { it.status == ModelStatus.ACTIVE }?.config?.name ?: ""
+                                if(activeLang.isNotEmpty()) {
+                                    Text(
+                                        " - $activeLang",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     },
                     navigationIcon = {
@@ -171,38 +202,46 @@ fun DetailChatScreen(
                         }
                     },
                     actions = {
-                        Box {
-                            IconButton(onClick = { isModelMenuExpanded = true }) {
+                        Row {
+                            IconButton(onClick = { showLanguageDialog = true }) {
                                 Icon(
-                                    Icons.Default.SmartToy,
-                                    "Ganti Model"
+                                    Icons.Default.Language,
+                                    contentDescription = "Ganti Bahasa"
                                 )
                             }
-
-                            DropdownMenu(
-                                expanded = isModelMenuExpanded,
-                                onDismissRequest = { isModelMenuExpanded = false }
-                            ) {
-                                availableModels.forEach { (id, name) ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(name)
-                                                if (id == currentModel) {
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Icon(
-                                                        Icons.Default.Check,
-                                                        null,
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.onModelChange(id)
-                                            isModelMenuExpanded = false
-                                        }
+                            Box {
+                                IconButton(onClick = { isModelMenuExpanded = true }) {
+                                    Icon(
+                                        Icons.Default.SmartToy,
+                                        "Ganti Model"
                                     )
+                                }
+
+                                DropdownMenu(
+                                    expanded = isModelMenuExpanded,
+                                    onDismissRequest = { isModelMenuExpanded = false }
+                                ) {
+                                    availableModels.forEach { (id, name) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(name)
+                                                    if (id == currentModel) {
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Icon(
+                                                            Icons.Default.Check,
+                                                            null,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                viewModel.onModelChange(id)
+                                                isModelMenuExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -218,7 +257,9 @@ fun DetailChatScreen(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                Box(modifier = Modifier.size(1.dp).focusable())
+                Box(modifier = Modifier
+                    .size(1.dp)
+                    .focusable())
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
@@ -298,7 +339,8 @@ fun DetailChatScreen(
                 }
 
                 Column(
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .background(
                             brush = Brush.verticalGradient(
@@ -312,7 +354,9 @@ fun DetailChatScreen(
                         .padding(8.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -379,7 +423,9 @@ fun DetailChatScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
                                 horizontalArrangement = Arrangement.SpaceAround
                             ) {
                                 ActionIcon(Icons.Default.ContentCopy, "Salin") {

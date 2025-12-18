@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -67,9 +68,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -90,6 +93,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.achmadichzan.rangkum.domain.model.ModelStatus
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
@@ -116,6 +121,10 @@ fun OverlayChatScreen(
     onToggleCollapse: () -> Unit,
     onOpacityChange: (Float) -> Unit,
 ) {
+    val voskModels by viewModel.voskModels.collectAsState()
+    val activeModelName = remember(voskModels) {
+        voskModels.find { it.status == ModelStatus.ACTIVE }?.config?.name
+    }
     val listState = rememberLazyListState()
     val lastMessage = viewModel.messages.lastOrNull()
     val lastMessageText = lastMessage?.text ?: ""
@@ -402,6 +411,26 @@ fun OverlayChatScreen(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                                             )
+                                            if (!isEditing && activeModelName != null) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+
+                                                Surface(
+                                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    border = BorderStroke(
+                                                        0.5.dp,
+                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                                    )
+                                                ) {
+                                                    Text(
+                                                        text = activeModelName,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontSize = 10.sp,
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
                                         }
                                         Spacer(modifier = Modifier.height(4.dp))
 

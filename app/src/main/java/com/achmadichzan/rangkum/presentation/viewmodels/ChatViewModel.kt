@@ -6,21 +6,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.achmadichzan.rangkum.domain.model.AVAILABLE_MODELS
 import com.achmadichzan.rangkum.domain.model.Message
+import com.achmadichzan.rangkum.domain.model.ModelStatus
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.domain.model.VoskModelConfig
 import com.achmadichzan.rangkum.domain.usecase.DeleteMessageUseCase
+import com.achmadichzan.rangkum.domain.usecase.DeleteVoskModelUseCase
+import com.achmadichzan.rangkum.domain.usecase.DownloadVoskModelUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetVoskModelStatusUseCase
 import com.achmadichzan.rangkum.domain.usecase.SaveMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.SummarizeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateSettingsUseCase
 import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.retry
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 
 class ChatViewModel(
     private val summarizeUseCase: SummarizeTranscriptUseCase,
@@ -30,6 +43,9 @@ class ChatViewModel(
     private val saveMessageUseCase: SaveMessageUseCase,
     getSettingsUseCase: GetSettingsUseCase,
     private val updateSettingsUseCase: UpdateSettingsUseCase,
+    private val downloadVoskModelUseCase: DownloadVoskModelUseCase,
+    private val getVoskModelStatusUseCase: GetVoskModelStatusUseCase,
+    private val deleteVoskModelUseCase: DeleteVoskModelUseCase
 ) : ViewModel() {
     val availableModels = listOf(
         "gemini-2.5-flash-lite" to "Flash 2.5 Lite (Cepat)",
@@ -41,6 +57,14 @@ class ChatViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = "gemini-2.5-flash-lite"
+        )
+    private val _voskModels = MutableStateFlow<List<UiVoskModel>>(emptyList())
+    val voskModels = _voskModels.asStateFlow()
+    val currentVoskModelCode = getSettingsUseCase.selectedVoskModelCode
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Lazily,
+            null
         )
     val messages = mutableStateListOf<UiMessage>()
     var userInput by mutableStateOf("")
@@ -59,6 +83,14 @@ class ChatViewModel(
     var sessionTitle by mutableStateOf("Detail Percakapan")
         private set
 
+    init {
+        refreshModelList()
+
+        viewModelScope.launch {
+            currentVoskModelCode.collect { refreshModelList() }
+        }
+    }
+
     fun onInputChange(newValue: String) {
         userInput = newValue
     }
@@ -69,6 +101,61 @@ class ChatViewModel(
 
     fun clearLiveTranscript() {
         liveTranscript = ""
+    }
+
+    fun onModelChange(newModel: String) {
+        viewModelScope.launch {
+            updateSettingsUseCase.setModel(newModel)
+        }
+    }
+
+    fun downloadModel(config: VoskModelConfig) {
+        viewModelScope.launch {
+            downloadVoskModelUseCase(config)
+                .retry(retries = 3) { cause ->
+                    if (cause is IOException) {
+                        delay(1000)
+                        return@retry true
+                    }
+                    return@retry false
+                }
+                .catch { e ->
+                    e.printStackTrace()
+                    refreshModelList()
+                }
+                .collect { progress ->
+                    _voskModels.update { list ->
+                        list.map { item ->
+                            if (item.config.code == config.code) {
+                                val newStatus = if (progress >= 2f) ModelStatus.READY
+                                    else ModelStatus.DOWNLOADING
+                                item.copy(
+                                    status = newStatus,
+                                    progress = if (progress > 1f) 1f else progress
+                                )
+                            } else item
+                        }
+                    }
+                    if (progress >= 2f) refreshModelList()
+                }
+        }
+    }
+
+    fun selectVoskModel(config: VoskModelConfig) {
+        viewModelScope.launch {
+            updateSettingsUseCase.setVoskModel(config.code)
+        }
+    }
+
+    fun deleteModel(config: VoskModelConfig) {
+        viewModelScope.launch {
+            try {
+                deleteVoskModelUseCase(config)
+                refreshModelList()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun startNewSession() {
@@ -178,9 +265,23 @@ class ChatViewModel(
         }
     }
 
-    fun onModelChange(newModel: String) {
-        viewModelScope.launch {
-            updateSettingsUseCase.setModel(newModel)
+    private fun refreshModelList() {
+        val currentCode = currentVoskModelCode.value
+
+        _voskModels.update {
+            AVAILABLE_MODELS.map { config ->
+                val currentItem = it.find { old -> old.config.code == config.code }
+                if (currentItem?.status == ModelStatus.DOWNLOADING) {
+                    currentItem
+                } else {
+                    val status = if (config.code == currentCode) {
+                        ModelStatus.ACTIVE
+                    } else {
+                        getVoskModelStatusUseCase(config)
+                    }
+                    UiVoskModel(config, status)
+                }
+            }
         }
     }
 
@@ -277,3 +378,9 @@ class ChatViewModel(
         )
     }
 }
+
+data class UiVoskModel(
+    val config: VoskModelConfig,
+    val status: ModelStatus,
+    val progress: Float = 0f
+)
