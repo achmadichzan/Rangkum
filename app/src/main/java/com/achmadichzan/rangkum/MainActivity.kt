@@ -14,8 +14,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
 import com.achmadichzan.rangkum.presentation.navigation.AppNavigation
 import com.achmadichzan.rangkum.presentation.service.OverlayService
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class MainActivity : ComponentActivity() {
     private var keepSplash = true
@@ -70,7 +74,10 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
-        keepSplash = false
+        lifecycleScope.launch {
+            delay(500.milliseconds)
+            keepSplash = false
+        }
     }
 
     private fun checkOverlayPermissionAndStart(sessionId: Long) {

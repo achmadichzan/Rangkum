@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,8 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.achmadichzan.rangkum.domain.model.ModelStatus
+import com.achmadichzan.rangkum.domain.model.UiVoskModel
 import com.achmadichzan.rangkum.domain.model.VoskModelConfig
-import com.achmadichzan.rangkum.presentation.viewmodels.UiVoskModel
 
 @Composable
 fun LanguageSelectionDialog(
@@ -45,6 +46,7 @@ fun LanguageSelectionDialog(
     onConfirm: (() -> Unit)? = null
 ) {
     AlertDialog(
+        modifier = Modifier.heightIn(max = 400.dp),
         onDismissRequest = onDismiss,
         title = {
             Text(if (onConfirm != null) "Mulai Chat Baru" else "Pilih Bahasa Transkripsi")

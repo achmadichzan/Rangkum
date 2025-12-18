@@ -18,7 +18,9 @@ import com.achmadichzan.rangkum.domain.usecase.DeleteSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.DeleteVoskModelUseCase
 import com.achmadichzan.rangkum.domain.usecase.DownloadVoskModelUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetActiveVoskModelPathUseCase
-import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetMessagesUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSessionsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetVoskModelStatusUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
@@ -38,6 +40,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.bind
@@ -75,25 +78,41 @@ val databaseModule = module {
     single { get<AppDatabase>().chatDao() }
     single { UserPreferences(androidContext()) }
 }
+val dispatcherModule = module {
+    single(named("io")) { Dispatchers.IO }
+}
 val repositoryModule = module {
-    singleOf(::ChatRepositoryImpl) { bind<ChatRepository>() }
-    singleOf(::AiRepositoryImpl) { bind<AiRepository>() }
+    single<ChatRepository> {
+        ChatRepositoryImpl(
+            chatDao = get(),
+            ioDispatcher = get(named("io"))
+        )
+    }
+    single<AiRepository> {
+        AiRepositoryImpl(
+            ioDispatcher = get(named("io"))
+        )
+    }
     singleOf(::SettingsRepositoryImpl) { bind<SettingsRepository>() }
     single<YoutubeRepository> {
         YoutubeRepositoryImpl(
-            get(named("apiClient"))
+            client = get(named("apiClient")),
+            ioDispatcher = get(named("io"))
         )
     }
     single<ModelRepository> {
         ModelRepositoryImpl(
             context = androidContext(),
-            client = get(named("downloadClient"))
+            client = get(named("downloadClient")),
+            ioDispatcher = get(named("io"))
         )
     }
 }
 val domainModule = module {
     singleOf(::SummarizeTranscriptUseCase)
-    singleOf(::GetHistoryUseCase)
+    singleOf(::GetSessionsUseCase)
+    singleOf(::GetSessionUseCase)
+    singleOf(::GetMessagesUseCase)
     singleOf(::UpdateMessageUseCase)
     singleOf(::DeleteSessionUseCase)
     singleOf(::RenameSessionUseCase)

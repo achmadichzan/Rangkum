@@ -58,7 +58,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -291,11 +290,9 @@ fun MainScreen(
                         }
                     } else {
                         items(sessions, key = { it.id }) { session ->
-                            val dismissState = key(session.id) {
-                                rememberSwipeToDismissBoxState(
-                                    positionalThreshold = { totalDistance -> totalDistance * 0.8f },
-                                )
-                            }
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                positionalThreshold = { totalDistance -> totalDistance * 0.8f }
+                            )
 
                             LaunchedEffect(session) {
                                 dismissState.snapTo(SwipeToDismissBoxValue.Settled)
@@ -346,7 +343,6 @@ fun MainScreen(
                                     }
                                 )
                             }
-
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                     }

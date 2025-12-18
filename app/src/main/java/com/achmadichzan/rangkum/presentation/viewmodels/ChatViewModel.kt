@@ -10,11 +10,14 @@ import com.achmadichzan.rangkum.domain.model.AVAILABLE_MODELS
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.model.ModelStatus
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.domain.model.UiVoskModel
 import com.achmadichzan.rangkum.domain.model.VoskModelConfig
+import com.achmadichzan.rangkum.domain.usecase.CreateSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.DeleteMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.DeleteVoskModelUseCase
 import com.achmadichzan.rangkum.domain.usecase.DownloadVoskModelUseCase
-import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetMessagesUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetVoskModelStatusUseCase
 import com.achmadichzan.rangkum.domain.usecase.SaveMessageUseCase
@@ -23,6 +26,8 @@ import com.achmadichzan.rangkum.domain.usecase.UpdateMessageUseCase
 import com.achmadichzan.rangkum.domain.usecase.UpdateSettingsUseCase
 import com.achmadichzan.rangkum.presentation.utils.PromptUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,10 +39,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.IOException
+import kotlin.collections.find
+import kotlin.collections.map
 
 class ChatViewModel(
+    private val createSessionUseCase: CreateSessionUseCase,
+    private val getSessionUseCase: GetSessionUseCase,
+    private val getmessagesUseCase: GetMessagesUseCase,
     private val summarizeUseCase: SummarizeTranscriptUseCase,
-    private val getHistoryUseCase: GetHistoryUseCase,
     private val updateMessageUseCase: UpdateMessageUseCase,
     private val deleteMessageUseCase: DeleteMessageUseCase,
     private val saveMessageUseCase: SaveMessageUseCase,
@@ -160,7 +169,7 @@ class ChatViewModel(
 
     fun startNewSession() {
         viewModelScope.launch {
-            currentSessionId = getHistoryUseCase.createNewSession(
+            currentSessionId = createSessionUseCase(
                 "Percakapan Baru ${System.currentTimeMillis()}"
             )
 
@@ -175,12 +184,12 @@ class ChatViewModel(
         currentSessionId = sessionId
 
         viewModelScope.launch {
-            val session = getHistoryUseCase.getSession(sessionId)
+            val session = getSessionUseCase(sessionId)
             if (session != null) {
                 sessionTitle = session.title
             }
 
-            val historyDomain = getHistoryUseCase.getMessages(sessionId)
+            val historyDomain = getmessagesUseCase(sessionId)
 
             withContext(Dispatchers.Main) {
                 messages.clear()
@@ -228,7 +237,7 @@ class ChatViewModel(
 
         viewModelScope.launch {
             if (currentSessionId == null) {
-                currentSessionId = getHistoryUseCase.createNewSession(
+                currentSessionId = createSessionUseCase(
                     "Transkrip ${System.currentTimeMillis()}"
                 )
             }
@@ -266,22 +275,28 @@ class ChatViewModel(
     }
 
     private fun refreshModelList() {
-        val currentCode = currentVoskModelCode.value
+        viewModelScope.launch {
+            val currentCode = currentVoskModelCode.value
+            val currentList = _voskModels.value
 
-        _voskModels.update {
-            AVAILABLE_MODELS.map { config ->
-                val currentItem = it.find { old -> old.config.code == config.code }
-                if (currentItem?.status == ModelStatus.DOWNLOADING) {
-                    currentItem
-                } else {
-                    val status = if (config.code == currentCode) {
-                        ModelStatus.ACTIVE
+            val newList = AVAILABLE_MODELS.map { config ->
+                async {
+                    val currentItem = currentList.find { old -> old.config.code == config.code }
+
+                    if (currentItem?.status == ModelStatus.DOWNLOADING) {
+                        currentItem
                     } else {
-                        getVoskModelStatusUseCase(config)
+                        val status = if (config.code == currentCode) {
+                            ModelStatus.ACTIVE
+                        } else {
+                            getVoskModelStatusUseCase(config)
+                        }
+                        UiVoskModel(config, status)
                     }
-                    UiVoskModel(config, status)
                 }
-            }
+            }.awaitAll()
+
+            _voskModels.value = newList
         }
     }
 
@@ -378,9 +393,3 @@ class ChatViewModel(
         )
     }
 }
-
-data class UiVoskModel(
-    val config: VoskModelConfig,
-    val status: ModelStatus,
-    val progress: Float = 0f
-)

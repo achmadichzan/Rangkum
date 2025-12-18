@@ -1,4 +1,3 @@
-import java.io.FileInputStream
 import java.util.Properties
 
 plugins {
@@ -11,21 +10,21 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
 }
 
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+
 android {
     signingConfigs {
         create("release") {
-            val keystorePropertiesFile = rootProject.file("local.properties")
-            val keystoreProperties = Properties()
-            if (keystorePropertiesFile.exists()) {
-                keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-            }
-            val keyPath = keystoreProperties.getProperty("store.file")
-
+            val keyPath = localProperties.getProperty("store.file")
             if (keyPath != null) {
                 storeFile = file(keyPath)
-                storePassword = keystoreProperties.getProperty("store.password")
-                keyAlias = keystoreProperties.getProperty("key.alias")
-                keyPassword = keystoreProperties.getProperty("key.password")
+                storePassword = localProperties.getProperty("store.password")
+                keyAlias = localProperties.getProperty("key.alias")
+                keyPassword = localProperties.getProperty("key.password")
             } else {
                 println("Warning: Keystore properties not found in local.properties")
             }
@@ -44,6 +43,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val baseUrl = localProperties.getProperty("BASE_URL") ?: ""
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
     }
 
     buildTypes {

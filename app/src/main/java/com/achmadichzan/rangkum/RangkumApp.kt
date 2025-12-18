@@ -2,6 +2,7 @@ package com.achmadichzan.rangkum
 
 import android.app.Application
 import com.achmadichzan.rangkum.di.databaseModule
+import com.achmadichzan.rangkum.di.dispatcherModule
 import com.achmadichzan.rangkum.di.domainModule
 import com.achmadichzan.rangkum.di.networkModule
 import com.achmadichzan.rangkum.di.repositoryModule
@@ -23,6 +24,7 @@ class RangkumApp : Application() {
             modules(
                 networkModule,
                 databaseModule,
+                dispatcherModule,
                 repositoryModule,
                 domainModule,
                 viewModelModule

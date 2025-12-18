@@ -777,7 +777,7 @@ fun OverlayChatScreen(
                             accumulatedDragX -= dragAmount.x
                             accumulatedDragY -= dragAmount.y
 
-                            if (abs(accumulatedDragX) >= 15f || abs(accumulatedDragY) >= 15f) {
+                            if (abs(accumulatedDragX) >= 20f || abs(accumulatedDragY) >= 20f) {
                                 onWindowResize(accumulatedDragX, accumulatedDragY)
                                 accumulatedDragX = 0f
                                 accumulatedDragY = 0f

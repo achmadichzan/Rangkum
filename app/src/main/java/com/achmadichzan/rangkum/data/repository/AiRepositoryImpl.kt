@@ -4,10 +4,14 @@ import com.achmadichzan.rangkum.data.remote.GeminiFactory
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.repository.AiRepository
 import com.google.firebase.ai.type.content
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
-class AiRepositoryImpl : AiRepository {
+class AiRepositoryImpl(
+    private val ioDispatcher: CoroutineDispatcher
+) : AiRepository {
     override fun generateContentStream(
         prompt: String,
         history: List<Message>,
@@ -32,5 +36,6 @@ class AiRepositoryImpl : AiRepository {
                 emit(it.text ?: "")
             }
         }
+            .flowOn(ioDispatcher)
     }
 }

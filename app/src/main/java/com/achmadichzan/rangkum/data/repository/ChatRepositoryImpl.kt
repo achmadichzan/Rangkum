@@ -6,14 +6,20 @@ import com.achmadichzan.rangkum.data.local.ChatSessionEntity
 import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.model.Session
 import com.achmadichzan.rangkum.domain.repository.ChatRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
-class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
+class ChatRepositoryImpl(
+    private val chatDao: ChatDao,
+    private val ioDispatcher: CoroutineDispatcher
+) : ChatRepository {
     override fun getAllSessions(): Flow<List<Session>> {
-        return chatDao.getAllSessions().map { entities ->
-            entities.map { it.toDomain() }
-        }
+        return chatDao.getAllSessions()
+            .map { entities -> entities.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
     }
 
     override suspend fun getSessionById(sessionId: Long): Session? {
@@ -21,9 +27,9 @@ class ChatRepositoryImpl(private val chatDao: ChatDao) : ChatRepository {
     }
 
     override suspend fun createSession(title: String): Long {
-        return chatDao.insertSession(
-            ChatSessionEntity(title = title)
-        )
+        return withContext(ioDispatcher) {
+            chatDao.insertSession(ChatSessionEntity(title = title))
+        }
     }
 
     override suspend fun createSessionWithId(session: Session): Long {

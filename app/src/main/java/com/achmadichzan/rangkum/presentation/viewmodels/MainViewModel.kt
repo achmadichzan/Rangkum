@@ -9,7 +9,9 @@ import com.achmadichzan.rangkum.domain.model.Message
 import com.achmadichzan.rangkum.domain.model.Session
 import com.achmadichzan.rangkum.domain.usecase.CreateSessionUseCase
 import com.achmadichzan.rangkum.domain.usecase.DeleteSessionUseCase
-import com.achmadichzan.rangkum.domain.usecase.GetHistoryUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetMessagesUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSessionUseCase
+import com.achmadichzan.rangkum.domain.usecase.GetSessionsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetSettingsUseCase
 import com.achmadichzan.rangkum.domain.usecase.GetYoutubeTranscriptUseCase
 import com.achmadichzan.rangkum.domain.usecase.RenameSessionUseCase
@@ -32,7 +34,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class MainViewModel(
-    private val getHistoryUseCase: GetHistoryUseCase,
+    private val getSessionsUseCase: GetSessionsUseCase,
+    private val getSessionUseCase: GetSessionUseCase,
+    private val getMessagesUseCase: GetMessagesUseCase,
     private val deleteSessionUseCase: DeleteSessionUseCase,
     private val renameSessionUseCase: RenameSessionUseCase,
     private val updateSessionUseCase: UpdateSessionUseCase,
@@ -49,7 +53,7 @@ class MainViewModel(
     val allSessions = _searchQuery
         .debounce(300)
         .flatMapLatest { query ->
-            getHistoryUseCase.getSessions(query)
+            getSessionsUseCase(query)
         }
         .map { list ->
             list.sortedWith(
@@ -120,8 +124,8 @@ class MainViewModel(
 
     fun deleteSession(sessionId: Long) {
         viewModelScope.launch {
-            val session = getHistoryUseCase.getSession(sessionId)
-            val messages = getHistoryUseCase.getMessages(sessionId)
+            val session = getSessionUseCase(sessionId)
+            val messages = getMessagesUseCase(sessionId)
 
             if (session != null) {
                 deletedSession = session
