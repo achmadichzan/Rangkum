@@ -26,10 +26,11 @@ It also supports **YouTube Link Summarization** via a custom Python backend.
     * Floating bubble interface (Picture-in-Picture style).
     * Captures system audio (Android 10+) directly without microphone noise.
     * **Resizible & Collapsible** window.
-* **🗣️ Offline Speech-to-Text (STT):**
-    * Powered by **Vosk**.
-    * Privacy-focused: Audio processing happens on-device (16kHz).
-    * Thread-safe implementation with Mutex buffer handling.
+* **🗣️ Multi-Language Offline STT:**
+    * **Dynamic Model Management:** Support for **30+ languages** (English, Chinese, Japanese, etc.).
+    * **On-Demand Downloads:** Download only the languages you need to keep the app size small.
+    * **Smart Downloader:** Features **Resumable Downloads** (handles network interruptions) and memory-efficient streaming using Ktor.
+    * Privacy-focused: All audio processing happens on-device using **Vosk**.
 * **🧠 AI Summarization:**
     * Integrated with **Google Gemini 2.5 Flash, Gemini 2.5 Flash Lite, Gemini 2.5 Pro (Paid)**.
     * **Streaming Response:** Text appears word-by-word (typewriter effect) for zero-latency feel.
@@ -57,7 +58,7 @@ It also supports **YouTube Link Summarization** via a custom Python backend.
 * **UI:** Jetpack Compose, Material 3 Adaptive
 * **Dependency Injection:** Koin
 * **Concurrency:** Coroutines & Flow
-* **Network:** Ktor Client (for Backend API)
+* **Network:** Ktor Client (Backend API & **Resumable File Downloader**)
 * **Database:** Room (SQLite)
 * **Local Storage:** DataStore Preferences
 * **AI SDK:** Firebase AI (Gemini)
@@ -91,8 +92,8 @@ com.achmadichzan.rangkum
 
 **Key Highlights:**
 * **OverlayService:** Handles the complexity of `WindowManager`, `MediaProjection`, and background audio processing.
+* **ModelRepository:** Implements a robust **Resumable Download** logic using HTTP `Range` headers to handle large zip files and prevent OOM (Out of Memory) errors during extraction.
 * **AudioTranscriber:** A dedicated class for managing the audio loop, Vosk inference, and thread synchronization (Mutex).
-* **MarkdownParser:** A custom lightweight parser to render Markdown in Compose using `AnnotatedString` for high performance (no WebView required).
 
 ---
 
