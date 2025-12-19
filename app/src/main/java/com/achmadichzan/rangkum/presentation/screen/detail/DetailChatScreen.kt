@@ -1,4 +1,4 @@
-package com.achmadichzan.rangkum.presentation.screen
+package com.achmadichzan.rangkum.presentation.screen.detail
 
 import android.content.ClipData
 import androidx.compose.animation.AnimatedVisibility
@@ -9,6 +9,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +22,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -31,6 +34,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -52,8 +56,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
@@ -70,8 +72,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
@@ -82,6 +86,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.ModelStatus
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.domain.model.UiVoskModel
+import com.achmadichzan.rangkum.domain.model.VoskModelConfig
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
 import com.achmadichzan.rangkum.presentation.components.LanguageSelectionDialog
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
@@ -89,7 +95,6 @@ import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailChatScreen(
     viewModel: ChatViewModel,
@@ -97,12 +102,67 @@ fun DetailChatScreen(
     onStartRecordingClick: () -> Unit
 ) {
     val voskModels by viewModel.voskModels.collectAsState()
-    var showLanguageDialog by remember { mutableStateOf(false) }
-    val listState = rememberLazyListState()
     val userPrefDark by viewModel.isDarkMode.collectAsState()
     val systemDark = isSystemInDarkTheme()
     val isDarkFinal = userPrefDark ?: systemDark
-    val lastMessageText = viewModel.messages.lastOrNull()?.text ?: ""
+
+    val currentModelId by viewModel.currentModel.collectAsState()
+    val availableModels = viewModel.availableModels
+    val currentModelName = availableModels.find { it.first == currentModelId }
+        ?.second ?: currentModelId
+
+    val activeLang = voskModels.find { it.status == ModelStatus.ACTIVE }
+        ?.config?.name ?: ""
+
+    DetailChatContent(
+        sessionTitle = viewModel.sessionTitle,
+        currentModelName = currentModelName,
+        activeLanguage = activeLang,
+        messages = viewModel.messages,
+        voskModels = voskModels,
+        availableModels = availableModels,
+        currentModelId = currentModelId,
+        userInput = viewModel.userInput,
+        isLoading = viewModel.isLoading,
+        isDarkTheme = isDarkFinal,
+        onBackClick = onBackClick,
+        onStartRecordingClick = onStartRecordingClick,
+        onInputChange = { viewModel.onInputChange(it) },
+        onSendMessage = { viewModel.sendMessage() },
+        onRegenerateResponse = { viewModel.regenerateResponse(it) },
+        onModelChange = { viewModel.onModelChange(it) },
+        onDownloadModel = { viewModel.downloadModel(it) },
+        onSelectVoskModel = { viewModel.selectVoskModel(it) },
+        onDeleteModel = { viewModel.deleteModel(it) }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DetailChatContent(
+    sessionTitle: String,
+    currentModelName: String,
+    activeLanguage: String,
+    messages: List<UiMessage>,
+    voskModels: List<UiVoskModel>,
+    availableModels: List<Pair<String, String>>,
+    currentModelId: String,
+    userInput: String,
+    isLoading: Boolean,
+    isDarkTheme: Boolean,
+    onBackClick: () -> Unit,
+    onStartRecordingClick: () -> Unit,
+    onInputChange: (String) -> Unit,
+    onSendMessage: () -> Unit,
+    onRegenerateResponse: (String) -> Unit,
+    onModelChange: (String) -> Unit,
+    onDownloadModel: (VoskModelConfig) -> Unit,
+    onSelectVoskModel: (VoskModelConfig) -> Unit,
+    onDeleteModel: (VoskModelConfig) -> Unit
+) {
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val lastMessageText = messages.lastOrNull()?.text ?: ""
     val isAtBottom by remember {
         derivedStateOf {
             val layoutInfo = listState.layoutInfo
@@ -116,15 +176,13 @@ fun DetailChatScreen(
     }
     val showScrollToBottom by remember {
         derivedStateOf {
-            !isAtBottom && viewModel.messages.isNotEmpty()
+            !isAtBottom && messages.isNotEmpty()
         }
     }
     var selectedMessage by remember { mutableStateOf<UiMessage?>(null) }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val currentModel by viewModel.currentModel.collectAsState()
-    val availableModels = viewModel.availableModels
     var isModelMenuExpanded by remember { mutableStateOf(false) }
     val windowInfo = LocalWindowInfo.current
     val windowSize = windowInfo.containerSize
@@ -135,23 +193,23 @@ fun DetailChatScreen(
     val isLandscape = screenWidthDp > screenHeightDp
     val showBackButton = !isLandscape && !isTablet
 
-    LaunchedEffect(viewModel.messages.size, lastMessageText) {
-        if (viewModel.messages.isNotEmpty()) {
-            val lastIndex = viewModel.messages.size - 1
-            if (viewModel.messages.last().isUser || isAtBottom) {
+    LaunchedEffect(messages.size, lastMessageText) {
+        if (messages.isNotEmpty()) {
+            val lastIndex = messages.size - 1
+            if (messages.last().isUser || isAtBottom) {
                 listState.animateScrollToItem(lastIndex)
             }
         }
     }
 
-    RangkumTheme(darkTheme = isDarkFinal) {
+    RangkumTheme(darkTheme = isDarkTheme) {
         if (showLanguageDialog) {
             LanguageSelectionDialog(
                 models = voskModels,
                 onDismiss = { showLanguageDialog = false },
-                onDownload = { viewModel.downloadModel(it) },
-                onSelect = { viewModel.selectVoskModel(it) },
-                onDelete = { viewModel.deleteModel(it) },
+                onDownload = onDownloadModel,
+                onSelect = onSelectVoskModel,
+                onDelete = onDeleteModel,
                 onConfirm = null
             )
         }
@@ -166,7 +224,7 @@ fun DetailChatScreen(
                     title = {
                         Column {
                             Text(
-                                text = viewModel.sessionTitle,
+                                text = sessionTitle,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 fontSize = 17.sp
@@ -176,14 +234,13 @@ fun DetailChatScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = availableModels.find { it.first == currentModel }?.second ?: currentModel,
+                                    text = currentModelName,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                val activeLang = voskModels.find { it.status == ModelStatus.ACTIVE }?.config?.name ?: ""
-                                if(activeLang.isNotEmpty()) {
+                                if (activeLanguage.isNotEmpty()) {
                                     Text(
-                                        " - $activeLang",
+                                        " - $activeLanguage",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -226,7 +283,7 @@ fun DetailChatScreen(
                                             text = {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(name)
-                                                    if (id == currentModel) {
+                                                    if (id == currentModelId) {
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Icon(
                                                             Icons.Default.Check,
@@ -237,7 +294,7 @@ fun DetailChatScreen(
                                                 }
                                             },
                                             onClick = {
-                                                viewModel.onModelChange(id)
+                                                onModelChange(id)
                                                 isModelMenuExpanded = false
                                             }
                                         )
@@ -270,26 +327,26 @@ fun DetailChatScreen(
                     )
                 ) {
                     items(
-                        viewModel.messages,
+                        messages,
                         key = { it.id },
                         contentType = { if (it.isUser) 1 else 2 }
                     ) { message ->
                         MessageBubble(
                             message = message,
                             onRetry = {
-                                val currentIndex = viewModel.messages.indexOf(message)
+                                val currentIndex = messages.indexOf(message)
                                 if (currentIndex > 0) {
-                                    val userPrompt = viewModel.messages[currentIndex - 1].text
-                                    viewModel.regenerateResponse(userPrompt)
+                                    val userPrompt = messages[currentIndex - 1].text
+                                    onRegenerateResponse(userPrompt)
                                 }
                             },
-                            onEditSave = { newPrompt -> viewModel.regenerateResponse(newPrompt) },
+                            onEditSave = { newPrompt -> onRegenerateResponse(newPrompt) },
                             onShowMenu = { selectedMessage = message }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    if (viewModel.isLoading) {
+                    if (isLoading) {
                         item {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -322,8 +379,8 @@ fun DetailChatScreen(
                     SmallFloatingActionButton(
                         onClick = {
                             scope.launch {
-                                if (viewModel.messages.isNotEmpty()) {
-                                    listState.animateScrollToItem(viewModel.messages.size - 1)
+                                if (messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(messages.size - 1)
                                 }
                             }
                         },
@@ -346,6 +403,8 @@ fun DetailChatScreen(
                             brush = Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Transparent,
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                    MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                                     MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                                     MaterialTheme.colorScheme.surface
                                 )
@@ -371,36 +430,87 @@ fun DetailChatScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        OutlinedTextField(
-                            value = viewModel.userInput,
-                            onValueChange = { viewModel.onInputChange(it) },
-                            modifier = Modifier.weight(1f),
-                            placeholder = {
-                                if (viewModel.messages.isEmpty()) Text("Tanyakan sesuatu...")
-                                else Text("Lanjut tanya AI...")
-                            },
-                            maxLines = 3,
-                            shape = RoundedCornerShape(24.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                            )
+//                        OutlinedTextField(
+//                            value = userInput,
+//                            onValueChange = onInputChange,
+//                            modifier = Modifier.weight(1f),
+//                            placeholder = {
+//                                if (messages.isEmpty()) Text("Tanyakan sesuatu...")
+//                                else Text("Lanjut tanya AI...")
+//                            },
+//                            maxLines = 3,
+//                            shape = RoundedCornerShape(24.dp),
+//                            colors = OutlinedTextFieldDefaults.colors(
+//                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+//                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+//                            )
+//                        )
+                        var isFocused by remember { mutableStateOf(false) }
+                        BasicTextField(
+                            value = userInput,
+                            onValueChange = { onInputChange(it) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(43.dp, 200.dp)
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isFocused) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(18.dp)
+                                ),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            maxLines = 4,
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    contentAlignment = Alignment.CenterStart,
+                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                ) {
+                                    if (messages.isEmpty() && userInput.isEmpty()) {
+                                        Text(
+                                            text = "Tanyakan sesuatu...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    } else if (messages.isNotEmpty() && userInput.isEmpty()) {
+                                        Text(
+                                            text = "Lanjut tanya AI...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
 
                         Spacer(modifier = Modifier.width(8.dp))
 
                         IconButton(
-                            onClick = { viewModel.sendMessage() },
+                            onClick = onSendMessage,
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, "Kirim")
+                            Icon(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .offset(x = 2.dp),
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Kirim"
+                            )
                         }
                     }
                 }
 
-                if (viewModel.messages.isEmpty()) {
+                if (messages.isEmpty()) {
                     Text(
                         "Belum ada percakapan.",
                         modifier = Modifier.align(Alignment.Center)

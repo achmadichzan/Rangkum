@@ -1,4 +1,4 @@
-package com.achmadichzan.rangkum.presentation.screen
+package com.achmadichzan.rangkum.presentation.screen.main
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -73,6 +73,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.achmadichzan.rangkum.R
 import com.achmadichzan.rangkum.domain.model.Session
+import com.achmadichzan.rangkum.domain.model.UiVoskModel
+import com.achmadichzan.rangkum.domain.model.VoskModelConfig
 import com.achmadichzan.rangkum.presentation.components.HistoryItem
 import com.achmadichzan.rangkum.presentation.components.LanguageSelectionDialog
 import com.achmadichzan.rangkum.presentation.components.RenameDialog
@@ -82,7 +84,6 @@ import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import com.achmadichzan.rangkum.presentation.viewmodels.MainViewModel
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = koinViewModel(),
@@ -90,22 +91,12 @@ fun MainScreen(
     onStartSession: (Long) -> Unit
 ) {
     val sessions by viewModel.allSessions.collectAsStateWithLifecycle()
-    var showRenameDialog by remember { mutableStateOf(false) }
-    var sessionToRename by remember { mutableStateOf<Session?>(null) }
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val voskModels by chatViewModel.voskModels.collectAsState()
-    var showNewChatLanguageDialog by remember { mutableStateOf(false) }
     val userPrefDark by viewModel.isDarkMode.collectAsState()
+    val voskModels by chatViewModel.voskModels.collectAsState()
     val systemDark = isSystemInDarkTheme()
     val isDarkFinal = userPrefDark ?: systemDark
-    var showYoutubeDialog by remember { mutableStateOf(false) }
-    var youtubeLink by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
-    val listState = rememberLazyListState()
-    var isFabVisible by remember { mutableStateOf(true) }
-    val pinnedCount = remember(sessions) { sessions.count { it.isPinned } }
-    val isPinLimitReached = pinnedCount >= 3
 
     LaunchedEffect(true) {
         viewModel.uiEvent.collect { event ->
@@ -116,7 +107,6 @@ fun MainScreen(
                         actionLabel = "BATAL",
                         duration = SnackbarDuration.Short
                     )
-
                     if (result == SnackbarResult.ActionPerformed) {
                         viewModel.undoDelete()
                     }
@@ -124,6 +114,66 @@ fun MainScreen(
             }
         }
     }
+
+    MainScreenContent(
+        sessions = sessions,
+        searchQuery = searchQuery,
+        isDarkTheme = isDarkFinal,
+        voskModels = voskModels,
+        youtubeError = viewModel.youtubeError,
+        isYoutubeLoading = viewModel.isYoutubeLoading,
+        snackbarHostState = snackbarHostState,
+        onStartSession = onStartSession,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
+        onToggleTheme = { viewModel.toggleTheme(isDarkFinal) },
+        onDeleteSession = { viewModel.deleteSession(it) },
+        onRenameSession = { id, title -> viewModel.renameSession(id, title) },
+        onTogglePin = { viewModel.togglePin(it) },
+        onProcessYoutubeLink = { link, onComplete ->
+            viewModel.processYoutubeLink(link, onComplete)
+        },
+        onClearYoutubeError = { viewModel.clearError() },
+        onDownloadModel = { chatViewModel.downloadModel(it) },
+        onSelectModel = { chatViewModel.selectVoskModel(it) },
+        onDeleteModel = { chatViewModel.deleteModel(it) }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreenContent(
+    sessions: List<Session>,
+    searchQuery: String,
+    isDarkTheme: Boolean,
+    voskModels: List<UiVoskModel>,
+    youtubeError: String?,
+    isYoutubeLoading: Boolean,
+    snackbarHostState: SnackbarHostState,
+
+    onStartSession: (Long) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onToggleTheme: () -> Unit,
+    onDeleteSession: (Long) -> Unit,
+    onRenameSession: (Long, String) -> Unit,
+    onTogglePin: (Session) -> Unit,
+
+    onProcessYoutubeLink: (String, (Long) -> Unit) -> Unit,
+    onClearYoutubeError: () -> Unit,
+
+    onDownloadModel: (VoskModelConfig) -> Unit,
+    onSelectModel: (VoskModelConfig) -> Unit,
+    onDeleteModel: (VoskModelConfig) -> Unit
+) {
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var sessionToRename by remember { mutableStateOf<Session?>(null) }
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    var showNewChatLanguageDialog by remember { mutableStateOf(false) }
+    var showYoutubeDialog by remember { mutableStateOf(false) }
+    var youtubeLink by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    var isFabVisible by remember { mutableStateOf(true) }
+    val pinnedCount = remember(sessions) { sessions.count { it.isPinned } }
+    val isPinLimitReached = pinnedCount >= 3
 
     LaunchedEffect(listState) {
         var prevIndex = 0
@@ -151,14 +201,14 @@ fun MainScreen(
             }
     }
 
-    RangkumTheme(darkTheme = isDarkFinal) {
+    RangkumTheme(darkTheme = isDarkTheme) {
         if (showNewChatLanguageDialog) {
             LanguageSelectionDialog(
                 models = voskModels,
                 onDismiss = { showNewChatLanguageDialog = false },
-                onDownload = { chatViewModel.downloadModel(it) },
-                onSelect = { chatViewModel.selectVoskModel(it) },
-                onDelete = { chatViewModel.deleteModel(it) },
+                onDownload = onDownloadModel,
+                onSelect = onSelectModel,
+                onDelete = onDeleteModel,
                 onConfirm = { onStartSession(-1L) }
             )
         }
@@ -169,10 +219,10 @@ fun MainScreen(
                 CenterAlignedTopAppBar(
                     title = { Text("Rangkum AI", fontWeight = FontWeight.Bold) },
                     actions = {
-                        IconButton(onClick = { viewModel.toggleTheme(isDarkFinal) }) {
+                        IconButton(onClick = onToggleTheme) {
                             Icon(
                                 imageVector =
-                                    if (isDarkFinal) Icons.Default.LightMode
+                                    if (isDarkTheme) Icons.Default.LightMode
                                     else Icons.Default.DarkMode,
                                 contentDescription = "Ganti Tema"
                             )
@@ -251,7 +301,7 @@ fun MainScreen(
                 Box(modifier = Modifier.size(1.dp).focusable())
                 SearchBar(
                     query = searchQuery,
-                    onQueryChange = viewModel::onSearchQueryChange
+                    onQueryChange = onSearchQueryChange
                 )
 
                 LazyColumn(
@@ -326,7 +376,7 @@ fun MainScreen(
                                 },
                                 onDismiss = { direction ->
                                     if (direction == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.deleteSession(session.id)
+                                        onDeleteSession(session.id)
                                     }
                                 }
                             ) {
@@ -339,7 +389,7 @@ fun MainScreen(
                                         showRenameDialog = true
                                     },
                                     onPinClick = {
-                                        viewModel.togglePin(session)
+                                        onTogglePin(session)
                                     }
                                 )
                             }
@@ -357,7 +407,7 @@ fun MainScreen(
                 onDismiss = { showRenameDialog = false },
                 onConfirm = { newTitle ->
                     if (newTitle.isNotBlank()) {
-                        viewModel.renameSession(sessionToRename!!.id, newTitle)
+                        onRenameSession(sessionToRename!!.id, newTitle)
                     }
                     showRenameDialog = false
                 }
@@ -381,9 +431,9 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        if (viewModel.youtubeError != null) {
+                        if (youtubeError != null) {
                             Text(
-                                text = viewModel.youtubeError!!,
+                                text = youtubeError,
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(top = 8.dp)
@@ -395,16 +445,16 @@ fun MainScreen(
                     Button(
                         onClick = {
                             if (youtubeLink.isNotBlank()) {
-                                viewModel.processYoutubeLink(youtubeLink) { sessionId ->
+                                onProcessYoutubeLink(youtubeLink) { sessionId ->
                                     showYoutubeDialog = false
                                     youtubeLink = ""
                                     onStartSession(sessionId)
                                 }
                             }
                         },
-                        enabled = !viewModel.isYoutubeLoading
+                        enabled = !isYoutubeLoading
                     ) {
-                        if (viewModel.isYoutubeLoading) {
+                        if (isYoutubeLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         } else {
                             Text("Proses")
@@ -415,7 +465,7 @@ fun MainScreen(
                     TextButton(
                         onClick = {
                             showYoutubeDialog = false
-                            viewModel.clearError()
+                            onClearYoutubeError()
                         }
                     ) { Text("Batal") }
                 }

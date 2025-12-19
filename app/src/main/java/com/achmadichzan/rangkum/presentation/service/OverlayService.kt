@@ -33,7 +33,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.achmadichzan.rangkum.MainActivity
 import com.achmadichzan.rangkum.domain.model.UiMessage
 import com.achmadichzan.rangkum.domain.usecase.GetActiveVoskModelPathUseCase
-import com.achmadichzan.rangkum.presentation.screen.OverlayChatScreen
+import com.achmadichzan.rangkum.presentation.screen.overlay.OverlayChatScreen
 import com.achmadichzan.rangkum.presentation.ui.theme.RangkumTheme
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import kotlinx.coroutines.delay

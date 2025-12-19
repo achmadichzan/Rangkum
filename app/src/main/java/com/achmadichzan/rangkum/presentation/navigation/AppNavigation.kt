@@ -25,8 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.achmadichzan.rangkum.presentation.screen.DetailChatScreen
-import com.achmadichzan.rangkum.presentation.screen.MainScreen
+import com.achmadichzan.rangkum.presentation.screen.detail.DetailChatScreen
+import com.achmadichzan.rangkum.presentation.screen.main.MainScreen
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel

@@ -1,4 +1,4 @@
-package com.achmadichzan.rangkum.presentation.screen
+package com.achmadichzan.rangkum.presentation.screen.overlay
 
 import android.content.ClipData
 import androidx.compose.animation.AnimatedVisibility
@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -42,7 +44,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Minimize
@@ -57,6 +58,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -64,9 +66,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -82,6 +83,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -96,6 +99,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.ModelStatus
 import com.achmadichzan.rangkum.domain.model.UiMessage
+import com.achmadichzan.rangkum.domain.model.UiVoskModel
 import com.achmadichzan.rangkum.presentation.components.ActionIcon
 import com.achmadichzan.rangkum.presentation.components.MessageBubble
 import com.achmadichzan.rangkum.presentation.viewmodels.ChatViewModel
@@ -122,20 +126,79 @@ fun OverlayChatScreen(
     onOpacityChange: (Float) -> Unit,
 ) {
     val voskModels by viewModel.voskModels.collectAsState()
+
+    OverlayChatContent(
+        messages = viewModel.messages,
+        voskModels = voskModels,
+        liveTranscript = viewModel.liveTranscript,
+        userInput = viewModel.userInput,
+        isLoading = viewModel.isLoading,
+        isPreparing = isPreparing,
+        isRecording = isRecording,
+        isPaused = isPaused,
+        isCollapsed = isCollapsed,
+        onStartRecording = onStartRecording,
+        onStopRecording = onStopRecording,
+        onTogglePause = onTogglePause,
+        onCancelRecording = onCancelRecording,
+        onCloseApp = onCloseApp,
+        onWindowDrag = onWindowDrag,
+        onWindowResize = onWindowResize,
+        onResetTranscript = onResetTranscript,
+        onUpdateTranscript = onUpdateTranscript,
+        onToggleCollapse = onToggleCollapse,
+        onOpacityChange = onOpacityChange,
+        onInputChange = { viewModel.onInputChange(it) },
+        onSendMessage = { viewModel.sendMessage() },
+        onRegenerateResponse = { viewModel.regenerateResponse(it) }
+    )
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OverlayChatContent(
+    messages: List<UiMessage>,
+    voskModels: List<UiVoskModel>,
+    liveTranscript: String,
+    userInput: String,
+    isLoading: Boolean,
+    isPreparing: Boolean,
+    isRecording: Boolean,
+    isPaused: Boolean,
+    isCollapsed: Boolean,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    onTogglePause: () -> Unit,
+    onCancelRecording: () -> Unit,
+    onCloseApp: () -> Unit,
+    onWindowDrag: (Float, Float) -> Unit,
+    onWindowResize: (Float, Float) -> Unit,
+    onResetTranscript: () -> Unit,
+    onUpdateTranscript: (String) -> Unit,
+    onToggleCollapse: () -> Unit,
+    onOpacityChange: (Float) -> Unit,
+    onInputChange: (String) -> Unit,
+    onSendMessage: () -> Unit,
+    onRegenerateResponse: (String) -> Unit
+) {
     val activeModelName = remember(voskModels) {
         voskModels.find { it.status == ModelStatus.ACTIVE }?.config?.name
     }
     val listState = rememberLazyListState()
-    val lastMessage = viewModel.messages.lastOrNull()
+    val lastMessage = messages.lastOrNull()
     val lastMessageText = lastMessage?.text ?: ""
     val lastMessageIsStreaming = lastMessage?.isStreaming ?: false
     var selectedMessage by remember { mutableStateOf<UiMessage?>(null) }
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(viewModel.messages.size, lastMessageText) {
-        if (viewModel.messages.isNotEmpty()) {
-            val lastIndex = viewModel.messages.size - 1
+    var currentAlpha by remember { mutableFloatStateOf(1f) }
+    var showOpacitySlider by remember { mutableStateOf(false) }
+    var accumulatedDragX by remember { mutableFloatStateOf(0f) }
+    var accumulatedDragY by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(messages.size, lastMessageText) {
+        if (messages.isNotEmpty()) {
+            val lastIndex = messages.size - 1
 
             if (lastMessageIsStreaming) {
                 listState.scrollToItem(lastIndex)
@@ -144,11 +207,6 @@ fun OverlayChatScreen(
             }
         }
     }
-
-    var currentAlpha by remember { mutableFloatStateOf(1f) }
-    var showOpacitySlider by remember { mutableStateOf(false) }
-    var accumulatedDragX by remember { mutableFloatStateOf(0f) }
-    var accumulatedDragY by remember { mutableFloatStateOf(0f) }
 
     if (isCollapsed) {
         Box(
@@ -195,30 +253,32 @@ fun OverlayChatScreen(
             }
         }
     } else {
-        Box(modifier = Modifier.padding(12.dp)) {
+        Box {
             Card(
                 modifier = Modifier.fillMaxSize()
-                    .heightIn(min = 80.dp)
+                    .widthIn(min = 200.dp)
+                    .heightIn(min = 100.dp)
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             onWindowDrag(dragAmount.x, dragAmount.y)
                         }
                     },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(15.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
             ) {
-                Column {
+                Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
                             val statusColor = when {
                                 isPreparing -> MaterialTheme.colorScheme.tertiary
                                 isRecording -> MaterialTheme.colorScheme.error
@@ -242,29 +302,42 @@ fun OverlayChatScreen(
                                 text = statusText,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
                         Row(
-                            modifier = Modifier.padding(8.dp)
+                            modifier = Modifier.height(42.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
                         ) {
-                            IconButton(onClick = { showOpacitySlider = !showOpacitySlider }) {
+                            IconButton(
+                                onClick = { showOpacitySlider = !showOpacitySlider },
+                                modifier = Modifier.size(32.dp)
+                            ) {
                                 Icon(
                                     Icons.Default.Visibility,
                                     "Transparansi",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            IconButton(onClick = onToggleCollapse) {
+                            IconButton(
+                                onClick = onToggleCollapse,
+                                modifier = Modifier.size(32.dp)
+                            ) {
                                 Icon(
                                     Icons.Default.Minimize,
                                     "Kecilkan",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(bottom = 15.dp)
+                                    modifier = Modifier.padding(bottom = 11.8.dp)
                                 )
                             }
-                            IconButton(onClick = onCloseApp) {
+                            IconButton(
+                                onClick = onCloseApp,
+                                modifier = Modifier.size(32.dp)
+                            ) {
                                 Icon(
                                     Icons.Default.Close,
                                     "Tutup",
@@ -276,29 +349,52 @@ fun OverlayChatScreen(
 
                     if (showOpacitySlider) {
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                                .height(22.dp)
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text(
-                                    "Transparansi: ${(currentAlpha * 100).toInt()}%",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Slider(
-                                    value = currentAlpha,
-                                    onValueChange = {
-                                        currentAlpha = it
-                                        onOpacityChange(it)
-                                    },
-                                    valueRange = 0.3f..1f
-                                )
-                            }
+                            Slider(
+                                modifier = Modifier.fillMaxWidth(),
+                                value = currentAlpha,
+                                onValueChange = {
+                                    currentAlpha = it
+                                    onOpacityChange(it)
+                                },
+                                valueRange = 0.3f..1f,
+                                thumb = {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(30.dp)
+                                            .height(24.dp)
+                                            .shadow(4.dp, CircleShape)
+                                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                            .border(
+                                                width = 2.dp,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                shape = CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) { Text(text = "${(currentAlpha * 100).toInt()}%", fontSize = 8.sp)}
+                                },
+                                track = { sliderState ->
+                                    SliderDefaults.Track(
+                                        colors = SliderDefaults.colors(
+                                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                                        sliderState = sliderState,
+                                        modifier = Modifier.height(3.dp)
+                                    )
+                                }
+                            )
                         }
                     }
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(bottom = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
 
@@ -308,19 +404,19 @@ fun OverlayChatScreen(
                             .fillMaxWidth()
                     ) {
                         items(
-                            viewModel.messages,
+                            messages,
                             key = { message -> message.id }
                         ) { message ->
                             MessageBubble(
                                 message = message,
                                 onEditSave = { newPrompt ->
-                                    viewModel.regenerateResponse(newPrompt)
+                                    onRegenerateResponse(newPrompt)
                                 },
                                 onRetry = {
-                                    val currentIndex = viewModel.messages.indexOf(message)
+                                    val currentIndex = messages.indexOf(message)
                                     if (currentIndex > 0) {
-                                        val userPrompt = viewModel.messages[currentIndex - 1].text
-                                        viewModel.regenerateResponse(userPrompt)
+                                        val userPrompt = messages[currentIndex - 1].text
+                                        onRegenerateResponse(userPrompt)
                                     }
                                 },
                                 onShowMenu = { selectedMessage = message }
@@ -328,7 +424,7 @@ fun OverlayChatScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                         }
 
-                        if (viewModel.isLoading) {
+                        if (isLoading) {
                             item {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     CircularProgressIndicator(
@@ -429,6 +525,8 @@ fun OverlayChatScreen(
                                                         text = activeModelName,
                                                         style = MaterialTheme.typography.labelSmall,
                                                         fontSize = 10.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
                                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                                     )
                                                 }
@@ -463,16 +561,16 @@ fun OverlayChatScreen(
                                                 }
                                             )
                                         } else {
-                                            LaunchedEffect(viewModel.liveTranscript) {
+                                            LaunchedEffect(liveTranscript) {
                                                 if (!isEditing) {
                                                     scrollState.animateScrollTo(scrollState.maxValue)
                                                 }
                                             }
 
                                             Column(modifier = Modifier.fillMaxWidth()) {
-                                                if (viewModel.liveTranscript.isNotBlank()) {
+                                                if (liveTranscript.isNotBlank()) {
                                                     Text(
-                                                        text = viewModel.liveTranscript,
+                                                        text = liveTranscript,
                                                         style = MaterialTheme.typography.bodyMedium,
                                                         fontStyle = FontStyle.Italic,
                                                         color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -496,7 +594,9 @@ fun OverlayChatScreen(
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
                                                                 alpha = 0.7f
-                                                            )
+                                                            ),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                 }
@@ -509,7 +609,7 @@ fun OverlayChatScreen(
 
                                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                                     val currentMaxWidth = maxWidth
-                                    val showSmallTools = currentMaxWidth > 280.dp
+                                    val showSmallTools = currentMaxWidth > 240.dp
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -521,7 +621,7 @@ fun OverlayChatScreen(
                                                 onClick = { isEditing = false },
                                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                                 contentColor = MaterialTheme.colorScheme.onSurface,
-                                                modifier = Modifier.size(48.dp)
+                                                modifier = Modifier.size(36.dp)
                                             ) {
                                                 Icon(Icons.Default.Close, "Batal Edit")
                                             }
@@ -536,7 +636,7 @@ fun OverlayChatScreen(
                                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                                 ),
                                                 modifier = Modifier.weight(1f)
-                                                    .height(48.dp),
+                                                    .height(36.dp),
                                                 shape = RoundedCornerShape(12.dp)
                                             ) {
                                                 Icon(Icons.Default.Check, null)
@@ -553,16 +653,15 @@ fun OverlayChatScreen(
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     SmallFloatingActionButton(
                                                         onClick = {
-                                                            val currentText = viewModel.liveTranscript
                                                             tempEditText = TextFieldValue(
-                                                                text = currentText,
-                                                                selection = TextRange(currentText.length)
+                                                                text = liveTranscript,
+                                                                selection = TextRange(liveTranscript.length)
                                                             )
                                                             isEditing = true
                                                         },
                                                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                        modifier = Modifier.size(48.dp)
+                                                        modifier = Modifier.size(36.dp)
                                                     ) {
                                                         Icon(
                                                             Icons.Default.Edit,
@@ -575,7 +674,7 @@ fun OverlayChatScreen(
                                                         onClick = onResetTranscript,
                                                         containerColor = MaterialTheme.colorScheme.secondary,
                                                         contentColor = MaterialTheme.colorScheme.onSecondary,
-                                                        modifier = Modifier.size(48.dp)
+                                                        modifier = Modifier.size(36.dp)
                                                     ) {
                                                         Icon(
                                                             Icons.Default.Refresh,
@@ -588,7 +687,7 @@ fun OverlayChatScreen(
                                                         onClick = onCancelRecording,
                                                         containerColor = MaterialTheme.colorScheme.errorContainer,
                                                         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                                        modifier = Modifier.size(48.dp)
+                                                        modifier = Modifier.size(36.dp)
                                                     ) {
                                                         Icon(
                                                             Icons.Default.Delete,
@@ -601,12 +700,12 @@ fun OverlayChatScreen(
                                                         onClick = onTogglePause,
                                                         containerColor = MaterialTheme.colorScheme.tertiary,
                                                         contentColor = MaterialTheme.colorScheme.onTertiary,
-                                                        modifier = Modifier.size(48.dp)
+                                                        modifier = Modifier.size(36.dp)
                                                     ) {
                                                         Icon(
                                                             imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                                                             contentDescription = if (isPaused) "Lanjutkan" else "Jeda",
-                                                            modifier = Modifier.size(24.dp)
+                                                            modifier = Modifier.size(20.dp)
                                                         )
                                                     }
                                                 }
@@ -620,10 +719,14 @@ fun OverlayChatScreen(
                                                 ),
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .height(48.dp),
+                                                    .height(36.dp),
                                                 shape = RoundedCornerShape(12.dp)
                                             ) {
-                                                Icon(Icons.Default.Stop, null)
+                                                Icon(
+                                                    modifier = Modifier.size(20.dp),
+                                                    imageVector = Icons.Default.Stop,
+                                                    contentDescription = null
+                                                )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 if (currentMaxWidth > 100.dp) {
                                                     Text(
@@ -641,8 +744,10 @@ fun OverlayChatScreen(
 
                         else -> {
                             Row(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                horizontalArrangement =
+                                    Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)
                             ) {
                                 IconButton(
                                     onClick = onStartRecording,
@@ -654,31 +759,58 @@ fun OverlayChatScreen(
                                     Icon(Icons.Default.GraphicEq, "Rekam Lagi")
                                 }
 
-                                Spacer(modifier = Modifier.width(8.dp))
+                                var isFocused by remember { mutableStateOf(false) }
 
-                                OutlinedTextField(
-                                    value = viewModel.userInput,
-                                    onValueChange = { viewModel.onInputChange(it) },
-                                    modifier = Modifier.weight(1f),
-                                    placeholder = { Text("Tanya detail...") },
+                                BasicTextField(
+                                    value = userInput,
+                                    onValueChange = { onInputChange(it) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(43.dp)
+                                        .onFocusChanged { isFocused = it.isFocused }
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (isFocused) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.outlineVariant,
+                                            shape = RoundedCornerShape(18.dp)
+                                        ),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    ),
                                     singleLine = true,
-                                    shape = RoundedCornerShape(24.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                                    )
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    decorationBox = { innerTextField ->
+                                        Box(
+                                            contentAlignment = Alignment.CenterStart,
+                                            modifier = Modifier.padding(horizontal = 12.dp)
+                                        ) {
+                                            if (userInput.isEmpty()) {
+                                                Text(
+                                                    text = "Tanya detail...",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    }
                                 )
 
-                                Spacer(modifier = Modifier.width(8.dp))
-
                                 IconButton(
-                                    onClick = { viewModel.sendMessage() },
+                                    onClick = onSendMessage,
                                     colors = IconButtonDefaults.iconButtonColors(
                                         containerColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onPrimary
                                     )
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.Send, "Kirim")
+                                    Icon(
+                                        modifier = Modifier.offset(x = 2.dp)
+                                            .size(22.dp),
+                                        imageVector = Icons.AutoMirrored.Filled.Send,
+                                        contentDescription = "Kirim"
+                                    )
                                 }
                             }
                         }
@@ -748,15 +880,6 @@ fun OverlayChatScreen(
             }
 
             Icon(
-                imageVector = Icons.Default.DragHandle,
-                contentDescription = "Drag Handle",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.align(Alignment.TopCenter)
-                    .padding(bottom = 8.dp)
-                    .size(32.dp)
-            )
-
-            Icon(
                 imageVector = Icons.Default.NorthWest,
                 contentDescription = "Resize",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
@@ -779,7 +902,7 @@ fun OverlayChatScreen(
                             accumulatedDragX -= dragAmount.x
                             accumulatedDragY -= dragAmount.y
 
-                            if (abs(accumulatedDragX) >= 20f || abs(accumulatedDragY) >= 20f) {
+                            if (abs(accumulatedDragX) >= 50f || abs(accumulatedDragY) >= 50f) {
                                 onWindowResize(accumulatedDragX, accumulatedDragY)
                                 accumulatedDragX = 0f
                                 accumulatedDragY = 0f

@@ -23,6 +23,8 @@ class OverlayWindowManager(private val context: Context) {
     private var density = 0f
     var isCollapsed by mutableStateOf(false)
         private set
+    private var preciseX = 0f
+    private var preciseY = 0f
 
     init {
         updateScreenDimensions()
@@ -41,11 +43,17 @@ class OverlayWindowManager(private val context: Context) {
             initialHeight,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         )
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         params.gravity = Gravity.TOP or Gravity.START
-        params.y = 200
+        params.y = 100
+
+        preciseX = params.x.toFloat()
+        preciseY = params.y.toFloat()
+
         return params
     }
 
@@ -70,18 +78,17 @@ class OverlayWindowManager(private val context: Context) {
     }
 
     fun updatePosition(view: View, deltaX: Float, deltaY: Float) {
-        val metrics = context.resources.displayMetrics
-        val screenWidth = metrics.widthPixels
-        val screenHeight = metrics.heightPixels
+        preciseX += deltaX
+        preciseY += deltaY
 
-        val newX = params.x + deltaX.toInt()
-        val newY = params.y + deltaY.toInt()
+        val maxX = (screenWidth - params.width).toFloat()
+        val maxY = (screenHeight - params.height).toFloat()
 
-        val maxX = screenWidth - 100
-        val maxY = screenHeight - 100
+        preciseX = preciseX.coerceIn(0f, maxX)
+        preciseY = preciseY.coerceIn(0f, maxY)
 
-        params.x = newX.coerceIn(-50, maxX)
-        params.y = newY.coerceIn(-50, maxY)
+        params.x = preciseX.toInt()
+        params.y = preciseY.toInt()
 
         updateViewLayout(view)
     }
@@ -114,6 +121,9 @@ class OverlayWindowManager(private val context: Context) {
         lastWidth = params.width
         lastHeight = params.height
 
+        preciseX = params.x.toFloat()
+        preciseY = params.y.toFloat()
+
         updateViewLayout(view)
     }
 
@@ -121,6 +131,7 @@ class OverlayWindowManager(private val context: Context) {
         val metrics = context.resources.displayMetrics
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
+        val navBarHeight = (48 * density).toInt()
 
         if (params.width > screenWidth) {
             params.width = screenWidth
@@ -130,18 +141,19 @@ class OverlayWindowManager(private val context: Context) {
             params.height = screenHeight
         }
 
-        if (params.x + params.width > screenWidth) {
-            params.x = screenWidth - params.width
-        }
+        val maxX = screenWidth - params.width
+        if (params.x > maxX) params.x = maxX
         if (params.x < 0) params.x = 0
 
-        if (params.y + params.height > screenHeight) {
-            params.y = screenHeight - params.height
-        }
+        val maxY = screenHeight - params.height - navBarHeight
+        if (params.y > maxY) params.y = maxY
         if (params.y < 0) params.y = 0
 
         lastWidth = params.width
         lastHeight = params.height
+
+        preciseX = params.x.toFloat()
+        preciseY = params.y.toFloat()
 
         updateViewLayout(view)
     }
@@ -163,6 +175,10 @@ class OverlayWindowManager(private val context: Context) {
             params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
             isCollapsed = true
         }
+
+        preciseX = params.x.toFloat()
+        preciseY = params.y.toFloat()
+
         updateViewLayout(view)
     }
 
