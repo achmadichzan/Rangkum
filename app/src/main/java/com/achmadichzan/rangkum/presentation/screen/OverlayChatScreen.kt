@@ -152,8 +152,7 @@ fun OverlayChatScreen(
 
     if (isCollapsed) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .pointerInput(Unit) {
                     detectDragGestures { change, dragAmount ->
                         change.consume()
@@ -199,6 +198,7 @@ fun OverlayChatScreen(
         Box(modifier = Modifier.padding(12.dp)) {
             Card(
                 modifier = Modifier.fillMaxSize()
+                    .heightIn(min = 80.dp)
                     .pointerInput(Unit) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
@@ -211,7 +211,7 @@ fun OverlayChatScreen(
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth(),
@@ -246,7 +246,9 @@ fun OverlayChatScreen(
                             )
                         }
 
-                        Row {
+                        Row(
+                            modifier = Modifier.padding(8.dp)
+                        ) {
                             IconButton(onClick = { showOpacitySlider = !showOpacitySlider }) {
                                 Icon(
                                     Icons.Default.Visibility,
@@ -390,7 +392,7 @@ fun OverlayChatScreen(
                                     ),
                                     shape = RoundedCornerShape(12.dp),
                                     modifier = Modifier.fillMaxWidth()
-                                        .heightIn(min = 100.dp, max = 200.dp)
+                                        .heightIn(min = 100.dp, max = 150.dp)
                                         .background(Color.Transparent)
                                 ) {
                                     Column(

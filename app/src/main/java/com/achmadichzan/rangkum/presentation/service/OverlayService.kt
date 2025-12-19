@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.Configuration
 import android.os.Build
+import android.os.PowerManager
 import android.view.KeyEvent
 import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -60,6 +61,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
     private val getActiveVoskModelPathUseCase: GetActiveVoskModelPathUseCase by inject()
     private var activeModelPath: String? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -110,6 +112,13 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
         setupComposeView()
         windowManagerHelper.addView(composeView)
+        val powerManager = getSystemService(PowerManager::class.java)
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "RangkumAI:TranscriberWakeLock"
+        ).apply {
+            setReferenceCounted(false)
+        }
     }
 
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
@@ -167,7 +176,10 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                             isPreparing = isAudioPreparing,
                             isCollapsed = windowManagerHelper.isCollapsed,
                             onStartRecording = { restartRecordingProcess() },
-                            onStopRecording = { audioTranscriber.stop() },
+                            onStopRecording = {
+                                audioTranscriber.stop()
+                                stopRecordingState()
+                            },
                             onTogglePause = {
                                 if (isPaused) {
                                     audioTranscriber.resume()
@@ -178,7 +190,14 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                                 }
                                 startForegroundServiceNotification()
                             },
-                            onCancelRecording = { audioTranscriber.stop() },
+                            onCancelRecording = {
+                                audioTranscriber.cancel()
+
+                                chatViewModel.clearLiveTranscript()
+                                audioTranscriber.clearTranscript()
+
+                                stopRecordingState()
+                            },
                             onCloseApp = { performGracefulShutdown() },
                             onWindowDrag = { dx, dy ->
                                 windowManagerHelper.updatePosition(composeView, dx, dy)
@@ -261,6 +280,11 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
         val sessionId = intent.getLongExtra("EXTRA_SESSION_ID", -1L)
 
         lifecycleScope.launch {
+            if (isRecording) {
+                audioTranscriber.stop()
+                delay(500)
+            }
+
             isAudioPreparing = true
 
             var currentPath = activeModelPath
@@ -287,12 +311,14 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
             isAudioPreparing = false
             startForegroundServiceNotification()
             audioTranscriber.start(resultCode, resultData!!, currentPath)
+            wakeLock?.acquire(3 * 60 * 60 * 1000L)
         }
     }
 
     private fun handleStopAction() {
         if (isRecording) {
             audioTranscriber.stop()
+            stopRecordingState()
             if (windowManagerHelper.isCollapsed) {
                 windowManagerHelper.toggleCollapse(composeView)
             }
@@ -302,12 +328,20 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private fun stopRecordingState() {
         isRecording = false
         isPaused = false
+        isAudioPreparing = false
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
         startForegroundServiceNotification()
     }
 
     private fun restartRecordingProcess() {
         val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+        )
         startActivity(intent)
     }
 
@@ -319,6 +353,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
 
     override fun onDestroy() {
         super.onDestroy()
+        if (wakeLock?.isHeld == true) wakeLock?.release()
         audioTranscriber.stop()
         audioTranscriber.release()
         if (::composeView.isInitialized) {
