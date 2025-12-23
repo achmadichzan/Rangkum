@@ -176,10 +176,7 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
                             isPreparing = isAudioPreparing,
                             isCollapsed = windowManagerHelper.isCollapsed,
                             onStartRecording = { restartRecordingProcess() },
-                            onStopRecording = {
-                                audioTranscriber.stop()
-                                stopRecordingState()
-                            },
+                            onStopRecording = { audioTranscriber.stop() },
                             onTogglePause = {
                                 if (isPaused) {
                                     audioTranscriber.resume()
@@ -318,7 +315,6 @@ class OverlayService : LifecycleService(), ViewModelStoreOwner, SavedStateRegist
     private fun handleStopAction() {
         if (isRecording) {
             audioTranscriber.stop()
-            stopRecordingState()
             if (windowManagerHelper.isCollapsed) {
                 windowManagerHelper.toggleCollapse(composeView)
             }

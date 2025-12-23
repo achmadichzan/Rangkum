@@ -65,7 +65,7 @@ class ChatViewModel(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = "gemini-2.5-flash-lite"
+            initialValue = "gemini-2.5-flash"
         )
     private val _voskModels = MutableStateFlow<List<UiVoskModel>>(emptyList())
     val voskModels = _voskModels.asStateFlow()

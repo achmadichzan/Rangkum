@@ -247,7 +247,11 @@ class AudioTranscriber(
 
                     if (finalText.isNotEmpty()) {
                         finalTranscript.append(finalText)
-                        val fullText = finalTranscript.toString()
+                    }
+
+                    val fullText = finalTranscript.toString()
+
+                    if (fullText.isNotBlank()) {
                         withContext(Dispatchers.Main) {
                             callback.onLiveTranscriptUpdate(fullText)
                             callback.onFinalTranscriptResult(fullText)

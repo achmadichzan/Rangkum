@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +44,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.achmadichzan.rangkum.domain.model.UiMessage
@@ -69,6 +71,10 @@ fun MessageBubble(
     else MaterialTheme.colorScheme.onSecondaryContainer
 
     val alignment = if (message.isUser) Alignment.End else Alignment.Start
+
+    var isExpanded by remember { mutableStateOf(false) }
+    var hasOverflow by remember { mutableStateOf(false) }
+    val MAX_LINES_COLLAPSED = 8
 
     var editedText by remember { mutableStateOf(TextFieldValue(message.text)) }
     val focusRequester = remember { FocusRequester() }
@@ -134,7 +140,7 @@ fun MessageBubble(
                     onLongClick = { if (!message.isEditing) onShowMenu() }
                 )
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.padding(12.dp).animateContentSize()) {
                 if (message.isEditing) {
                     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -183,92 +189,132 @@ fun MessageBubble(
                 else {
                     val useFastRendering = message.isStreaming
 
-                    if (useFastRendering) {
-                        val fastStyledText = remember(displayedText) {
-                            MarkdownParser.parse(
-                                text = displayedText,
-                                primaryColor = textColor
-                            )
+                    if (isExpanded) {
+                        if (useFastRendering) {
+                            val fastStyledText = remember(displayedText) {
+                                MarkdownParser.parse(
+                                    text = displayedText,
+                                    primaryColor = textColor
+                                )
+                            }
+
+                            SelectionContainer {
+                                Text(
+                                    text = fastStyledText,
+                                    color = textColor,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    lineHeight = 20.sp
+                                )
+                            }
+                        } else {
+                            val blocks = remember(displayedText) {
+                                MarkdownParser.parseToBlocks(
+                                    text = displayedText,
+                                    primaryColor = textColor,
+                                    onBackground = textColor
+                                )
+                            }
+
+                            SelectionContainer {
+                                Column(modifier = Modifier.animateContentSize()) {
+                                    blocks.forEachIndexed { index, block ->
+                                        key(index) {
+                                            RenderMarkdownBlock(block, textColor)
+                                        }
+                                        val isCurrentList = block is MarkdownBlock.ListBullet
+                                                || block is MarkdownBlock.ListNumber
+                                        val nextBlock = blocks.getOrNull(index + 1)
+                                        val isNextList = nextBlock is MarkdownBlock.ListBullet
+                                                || nextBlock is MarkdownBlock.ListNumber
+
+                                        if (isCurrentList && !isNextList) {
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        val collapsedStyledText = remember(displayedText) {
+                            MarkdownParser.parse(text = displayedText, primaryColor = textColor)
                         }
 
                         SelectionContainer {
                             Text(
-                                text = fastStyledText,
+                                text = collapsedStyledText,
                                 color = textColor,
                                 style = MaterialTheme.typography.bodyMedium,
-                                lineHeight = 20.sp
-                            )
-                        }
-                    } else {
-                        val blocks = remember(displayedText) {
-                            MarkdownParser.parseToBlocks(
-                                text = displayedText,
-                                primaryColor = textColor,
-                                onBackground = textColor
-                            )
-                        }
-
-                        SelectionContainer {
-                            Column(modifier = Modifier.animateContentSize()) {
-                                blocks.forEachIndexed { index, block ->
-                                    key(index) {
-                                        RenderMarkdownBlock(block, textColor)
-                                    }
-                                    val isCurrentList = block is MarkdownBlock.ListBullet
-                                            || block is MarkdownBlock.ListNumber
-                                    val nextBlock = blocks.getOrNull(index + 1)
-                                    val isNextList = nextBlock is MarkdownBlock.ListBullet
-                                            || nextBlock is MarkdownBlock.ListNumber
-
-                                    if (isCurrentList && !isNextList) {
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                lineHeight = 20.sp,
+                                maxLines = MAX_LINES_COLLAPSED,
+                                overflow = TextOverflow.Ellipsis,
+                                onTextLayout = { textLayoutResult ->
+                                    if (textLayoutResult.hasVisualOverflow) {
+                                        hasOverflow = true
                                     }
                                 }
-                            }
+                            )
                         }
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.End,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (message.isError && !message.isUser) {
-                            IconButton(
-                                onClick = { onRetry(message.text) },
-                                modifier = Modifier.size(24.dp)
+                        if (hasOverflow || isExpanded) {
+                            TextButton(
+                                onClick = { isExpanded = !isExpanded },
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.height(32.dp)
                             ) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    "Coba Lagi",
-                                    tint = MaterialTheme.colorScheme.error
+                                Text(
+                                    text = if (isExpanded) "Sembunyikan" else "Selengkapnya",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = textColor.copy(alpha = 0.8f)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Gagal. Coba lagi?",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
                         }
 
-                        if (message.isUser) {
-                            IconButton(
-                                onClick = {
-                                    val currentText = message.text
-                                    editedText = TextFieldValue(
-                                        text = message.text,
-                                        selection = TextRange(currentText.length)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (message.isError && !message.isUser) {
+                                IconButton(
+                                    onClick = { onRetry(message.text) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Refresh,
+                                        "Coba Lagi",
+                                        tint = MaterialTheme.colorScheme.error
                                     )
-                                    message.isEditing = true
-                                },
-                                modifier = Modifier.size(20.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    "Edit Prompt",
-                                    tint = textColor.copy(alpha = 0.6f)
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Gagal. Coba lagi?",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error
                                 )
+                            }
+
+                            if (message.isUser) {
+                                IconButton(
+                                    onClick = {
+                                        val currentText = message.text
+                                        editedText = TextFieldValue(
+                                            text = message.text,
+                                            selection = TextRange(currentText.length)
+                                        )
+                                        message.isEditing = true
+                                    },
+                                    modifier = Modifier.size(20.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        "Edit Prompt",
+                                        tint = textColor.copy(alpha = 0.6f)
+                                    )
+                                }
                             }
                         }
                     }
